@@ -9,8 +9,13 @@ import json
 from datetime import datetime, timedelta
 from supabase import create_client
 
-# ── Supabase ──────────────────────────────────────────────────────
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+# ── Supabase (lazy init) ─────────────────────────────────────────
+_supabase = None
+def get_supabase():
+    global _supabase
+    if _supabase is None:
+        _supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    return _supabase
 
 # ── OpenRouter LLM ────────────────────────────────────────────────
 llm = ChatOpenAI(
@@ -36,7 +41,7 @@ class AgentState(TypedDict):
 def get_meal_history() -> str:
     """Get meals eaten in the last 14 days to avoid repetition"""
     since = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
-    data = supabase.from_("meal_plans").select("planned_date, lunch, dinner").gte("planned_date", since).order("planned_date", desc=True).execute()
+    data = get_supabase().from_("meal_plans").select("planned_date, lunch, dinner").gte("planned_date", since).order("planned_date", desc=True).execute()
     if not data.data:
         return "No meal history yet — first week!"
     return "\n".join([f"{r['planned_date']}: {r['lunch']}" for r in data.data])
@@ -46,7 +51,7 @@ def get_month_expenses() -> dict:
     """Get current month's grocery expenses by platform"""
     now = datetime.now()
     month_start = f"{now.year}-{now.month:02d}-01"
-    data = supabase.from_("expenses").select("platform, amount, note, expense_date").gte("expense_date", month_start).execute()
+    data = get_supabase().from_("expenses").select("platform, amount, note, expense_date").gte("expense_date", month_start).execute()
     total = sum(r["amount"] for r in (data.data or []))
     by_platform = {}
     for r in (data.data or []):
@@ -56,7 +61,7 @@ def get_month_expenses() -> dict:
 @tool
 def save_meal_plan(date: str, lunch: str, dinner: str, is_veg: bool = False, total_protein: int = 0) -> dict:
     """Save a confirmed meal plan to database"""
-    supabase.from_("meal_plans").upsert({
+    get_supabase().from_("meal_plans").upsert({
         "planned_date": date,
         "day_of_week": datetime.strptime(date, "%Y-%m-%d").strftime("%a"),
         "is_veg": is_veg,
@@ -70,7 +75,7 @@ def save_meal_plan(date: str, lunch: str, dinner: str, is_veg: bool = False, tot
 @tool
 def save_expense(platform: str, amount: int, note: str = "") -> dict:
     """Log a grocery expense"""
-    supabase.from_("expenses").insert({
+    get_supabase().from_("expenses").insert({
         "platform": platform,
         "amount": amount,
         "note": note,
@@ -81,7 +86,7 @@ def save_expense(platform: str, amount: int, note: str = "") -> dict:
 @tool
 def get_prices() -> list:
     """Get current grocery prices from database"""
-    data = supabase.from_("prices").select("item, quantity, price_inr, platform, category").order("category").execute()
+    data = get_supabase().from_("prices").select("item, quantity, price_inr, platform, category").order("category").execute()
     return data.data or []
 
 TOOLS = [get_meal_history, get_month_expenses, save_meal_plan, save_expense, get_prices]
@@ -175,9 +180,9 @@ def finalize_node(state: AgentState) -> AgentState:
                 response_text = response_text.replace(match.group(), "").strip()
                 # Save to DB
                 week = datetime.now().strftime("%Y-%m-%d")
-                supabase.from_("shopping_items").delete().eq("week_start", week).execute()
+                get_supabase().from_("shopping_items").delete().eq("week_start", week).execute()
                 if shopping_list:
-                    supabase.from_("shopping_items").insert([{**i, "week_start": week} for i in shopping_list]).execute()
+                    get_supabase().from_("shopping_items").insert([{**i, "week_start": week} for i in shopping_list]).execute()
         except:
             pass
 
