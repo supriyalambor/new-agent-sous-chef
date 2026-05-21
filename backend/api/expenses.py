@@ -6,7 +6,12 @@ import os
 from supabase import create_client
 
 router = APIRouter()
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+_supabase = None
+def get_supabase():
+    global _supabase
+    if _supabase is None:
+        _supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    return _supabase
 
 class ExpenseCreate(BaseModel):
     platform: str
@@ -17,13 +22,13 @@ class ExpenseCreate(BaseModel):
 async def get_expenses():
     now = datetime.now()
     month_start = f"{now.year}-{now.month:02d}-01"
-    data = supabase.from_("expenses").select("*").gte("expense_date", month_start).order("expense_date", desc=True).execute()
+    data = get_supabase().from_("expenses").select("*").gte("expense_date", month_start).order("expense_date", desc=True).execute()
     total = sum(r["amount"] for r in (data.data or []))
     return {"expenses": data.data, "total": total}
 
 @router.post("/")
 async def add_expense(expense: ExpenseCreate):
-    data = supabase.from_("expenses").insert({
+    data = get_supabase().from_("expenses").insert({
         "platform": expense.platform,
         "amount": expense.amount,
         "note": expense.note,
@@ -33,5 +38,5 @@ async def add_expense(expense: ExpenseCreate):
 
 @router.delete("/{expense_id}")
 async def delete_expense(expense_id: str):
-    supabase.from_("expenses").delete().eq("id", expense_id).execute()
+    get_supabase().from_("expenses").delete().eq("id", expense_id).execute()
     return {"success": True}
