@@ -1,0 +1,18 @@
+{
+  "name": "sous-chef-v2",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "framer-motion": "^11.0.0",
+    "vite": "^4.4.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  }
+}
