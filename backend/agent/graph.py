@@ -25,7 +25,7 @@ def sb_url(path):
 llm = ChatOpenAI(
     model="llama-3.1-8b-instant",
     openai_api_base="https://api.groq.com/openai/v1",
-    openai_api_key=os.getenv("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"),
+    openai_api_key=os.getenv("GROQ_API_KEY"),
     temperature=0.2,
     max_tokens=1000,
 )
@@ -145,21 +145,21 @@ def agent_node(state: AgentState) -> AgentState:
     """Main agent node — thinks and decides what to do"""
     messages = [SystemMessage(content=SYSTEM)]
     for m in state["messages"]:
-        if m["role"] == "user":
-            messages.append(HumanMessage(content=m["content"]))
-        elif m["role"] == "assistant":
-            messages.append(AIMessage(content=m["content"]))
+        if isinstance(m, dict):
+            if m.get("role") == "user":
+                messages.append(HumanMessage(content=m["content"]))
+            elif m.get("role") == "assistant":
+                messages.append(AIMessage(content=m.get("content", "")))
+        else:
+            messages.append(m)
 
     response = llm_with_tools.invoke(messages)
-    
-    # Check if tools needed
-    needs_tools = bool(response.tool_calls)
-    
+    needs_tools = bool(getattr(response, "tool_calls", None))
+
     return {
         **state,
-        "messages": state["messages"] + [{"role": "assistant", "content": response.content or "", "tool_calls": getattr(response, "tool_calls", [])}],
+        "messages": messages + [response],
         "needs_tools": needs_tools,
-        "_last_response": response,
     }
 
 def should_use_tools(state: AgentState) -> str:
