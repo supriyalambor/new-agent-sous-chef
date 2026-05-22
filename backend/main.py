@@ -14,9 +14,9 @@ app = FastAPI(title="Sous Chef API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://new-agent-sous-chef.vercel.app", "http://localhost:5173"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -46,6 +46,9 @@ async def chat(request: ChatRequest):
             meal_plan=result.get("meal_plan"),
         )
     except Exception as e:
+        import traceback
+        print("CHAT ERROR:", str(e))
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
