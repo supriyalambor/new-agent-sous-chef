@@ -127,6 +127,13 @@ async def execute_tool(name: str, args: dict) -> str:
             return json.dumps({"total": total, "target": 38000, "remaining": 38000 - total})
 
         elif name == "save_meal_plan":
+            is_veg = args.get("is_veg", False)
+            if isinstance(is_veg, str):
+                is_veg = is_veg.lower() == "true"
+            total_protein = args.get("total_protein", 0)
+            if isinstance(total_protein, str):
+                try: total_protein = float(total_protein)
+                except: total_protein = 0
             async with httpx.AsyncClient() as client:
                 await client.post(
                     sb_url("meal_plans"),
@@ -134,10 +141,10 @@ async def execute_tool(name: str, args: dict) -> str:
                     json={
                         "planned_date": args.get("date"),
                         "day_of_week": datetime.strptime(args["date"], "%Y-%m-%d").strftime("%a") if args.get("date") else "",
-                        "is_veg": args.get("is_veg", False),
+                        "is_veg": is_veg,
                         "lunch": args.get("lunch", ""),
                         "dinner": args.get("dinner", args.get("lunch", "")),
-                        "total_protein": args.get("total_protein", 0),
+                        "total_protein": total_protein,
                         "confirmed": True,
                     }
                 )
