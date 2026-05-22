@@ -23,7 +23,7 @@ def sb_url(path):
 
 # ── OpenRouter LLM ────────────────────────────────────────────────
 llm = ChatOpenAI(
-    model="deepseek/deepseek-r1:free",
+    model="openrouter/auto",
     openai_api_base="https://openrouter.ai/api/v1",
     openai_api_key=os.getenv("OPENROUTER_API_KEY"),
     temperature=0.2,
