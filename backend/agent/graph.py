@@ -1,6 +1,6 @@
 from typing import TypedDict, Annotated, List, Optional
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolNode
