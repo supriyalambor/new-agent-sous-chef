@@ -1,7 +1,5 @@
-from typing import TypedDict, List, Optional
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
-from langchain_core.tools import tool
 import os
 import json
 import httpx
@@ -11,11 +9,11 @@ from datetime import datetime, timedelta
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     groq_api_key=os.getenv("GROQ_API_KEY"),
-    temperature=0.2,
-    max_tokens=1000,
+    temperature=0.1,
+    max_tokens=1500,
 )
 
-# ── Supabase REST helpers ─────────────────────────────────────────
+# ── Supabase REST ─────────────────────────────────────────────────
 def sb_headers():
     key = os.getenv("SUPABASE_SERVICE_KEY")
     return {
@@ -29,37 +27,69 @@ def sb_url(path):
     return f"{os.getenv('SUPABASE_URL')}/rest/v1/{path}"
 
 # ── System prompt ─────────────────────────────────────────────────
-SYSTEM = """You are Sous Chef, a meal planning agent for Supriya and Vivek in Bengaluru.
+SYSTEM = """You are Sous Chef, meal planning agent for Supriya (36F,65kg) and Vivek (39M,83kg) in Bengaluru.
 
-TARGETS:
-- Supriya (36F, 65kg, fat loss): 1,846 kcal/day | 130g protein
-- Vivek (39M, 83kg, fat loss): 2,709 kcal/day | 166g protein
+DAILY TARGETS:
+Supriya: 1,846 kcal | 130g protein
+Vivek: 2,709 kcal | 166g protein
 
-FIXED BREAKFAST every day: 8 egg white bhurji + 2 bread slices + protein smoothie
-Supriya: 38g protein | 480 kcal | Vivek: 38g protein | 520 kcal
+FIXED BREAKFAST (every single day, no exceptions):
+8 egg white bhurji + 2 whole wheat bread slices + protein smoothie with seasonal fruit
+Supriya: 38g protein | 480 kcal
+Vivek: 38g protein | 520 kcal
 
-WEEKLY ROTATION:
-Mon: Chicken | Tue: Fish dry fry | Wed: Chicken (different combo from Mon)
-Thu: Paneer — VEG DAY | Fri: Fish (different sabzi from Tue)
-Sat: Chicken (different from Mon+Wed) | Sun: Fish or Paneer
+WEEKLY PROTEIN ROTATION — STRICT:
+Monday = CHICKEN
+Tuesday = FISH DRY FRY (mackerel/sardines — NO curry, NO biryani, DRY FRY ONLY)
+Wednesday = CHICKEN (must be different gravy+sabzi from Monday)
+Thursday = PANEER ONLY — VEG DAY (zero meat/fish/eggs in main meals)
+Friday = FISH DRY FRY (different dry sabzi from Tuesday)
+Saturday = CHICKEN (different gravy+sabzi from Mon and Wed)
+Sunday = FISH DRY FRY or PANEER + paratha breakfast
 
-EVERY meal = gravy + dry sabzi + protein + rice(lunch)/roti(dinner)
-Fish/dal days = rice both meals
+EVERY MEAL MUST HAVE EXACTLY 4 COMPONENTS — NO EXCEPTIONS:
+1. GRAVY — pick ONE from: dal tadka | palak dal | rajma | black chana | matar paneer | kadhi | santula | aloo gobi gravy
+2. DRY SABZI — pick ONE from: torai sabzi | bhindi fry | beans carrot sabzi | cauliflower matar aloo carrot | cabbage sabzi | baingan bharta | beetroot sabzi
+3. PROTEIN — chicken sukka OR fish dry fry OR paneer (already in matar paneer)
+4. STARCH — Rice at lunch | Roti at dinner (fish days and dal-only days = rice BOTH meals)
 
-RULES:
-- Kadhi always with fish, never chicken
-- Rajma/chana days = no meat
-- Torai = always dry sabzi never curry
-- Never repeat same combo in same week
-- Thursday = paneer only, matar paneer IS the protein
+STRICT RULES:
+- Kadhi ONLY with fish dry fry (NEVER with chicken)
+- Rajma or black chana day = NO meat that day
+- Torai = ALWAYS dry sabzi, NEVER a curry
+- NEVER repeat same gravy+sabzi combination in same week
+- Each chicken day must have DIFFERENT gravy AND different sabzi
+- Paneer day: matar paneer IS both the gravy and the protein — still needs a dry sabzi
+
+CORRECT EXAMPLES:
+Monday (chicken): Lunch = Dal tadka + Torai sabzi + Chicken sukka + Rice | Dinner = Dal tadka + Torai sabzi + Chicken sukka + Roti
+Tuesday (fish): Lunch = Kadhi + Bhindi fry + Mackerel dry fry + Rice | Dinner = Kadhi + Bhindi fry + Mackerel dry fry + Rice
+Thursday (paneer): Lunch = Matar paneer + Bhindi fry + Rice | Dinner = Matar paneer + Bhindi fry + Roti
+Wednesday (chicken): Lunch = Palak dal + Beans carrot sabzi + Chicken sukka + Rice | Dinner = Palak dal + Beans carrot sabzi + Chicken sukka + Roti
 
 PER SITTING MACROS:
-Chicken: Supriya 32g/400kcal | Vivek 42g/500kcal
-Fish: Supriya 30g/370kcal | Vivek 40g/460kcal
-Paneer: Supriya 24g/380kcal | Vivek 32g/470kcal
+Breakfast: Supriya 38g/480kcal | Vivek 38g/520kcal
+Chicken meal: Supriya 32g/400kcal | Vivek 42g/500kcal
+Fish meal: Supriya 30g/370kcal | Vivek 40g/460kcal
+Paneer meal: Supriya 24g/380kcal | Vivek 32g/470kcal
+Dal/rajma meal: Supriya 20g/350kcal | Vivek 28g/430kcal
 Evening snack: 8g/120kcal each
 
-Keep responses under 200 words. Always show macros per person separately."""
+EVENING SNACK ROTATION: pesarettu + coconut chutney | sprouted moong/chana chaat | Epigamia Greek yogurt | fruit
+
+WEEKLY SHOPPING LIST FORMAT (always include prices):
+Group by platform. Use these REAL prices:
+LICIOUS: Eggs ₹132/dozen (need 6 dozen) | Chicken breast 450g ₹295 | Chicken curry cut 500g ₹260 | Mackerel 500g ₹350 | Sardines 500g ₹180
+INSTAMART: Akshayakalpa Paneer 200g ₹136 | A2 Milk 500ml ₹53 (2/day) | Epigamia Greek yogurt ₹249 | Whole wheat bread ₹50/loaf | Torai 500g ₹30 | Bhindi 500g ₹40 | Beans 500g ₹40 | Cauliflower ₹45 | Potato 1kg ₹35 | Cabbage ₹35 | Baingan 500g ₹35 | Beetroot ₹30 | Palak bunch ₹30 | Carrot 500g ₹35 | Matar frozen 500g ₹65 | Tata Sampann Dal 500g ₹130 | Rajma 500g ₹143 | Black Chana 1kg ₹113 | Curd 500g ₹40 | Pesarettu batter ₹69 | Dragon fruit 600g ₹240 | Banana 6pc ₹45 | Blueberries 125g ₹199
+
+BUDGET: Monthly target ₹38,000. Weekly target ₹9,500. Always show estimated weekly total.
+
+RESPONSE FORMAT:
+- Plain text with emojis
+- Always show macros per person
+- For shopping list: group by platform with item, quantity, price
+- Show weekly estimated total at the end
+- Max 300 words"""
 
 # ── Tools ─────────────────────────────────────────────────────────
 TOOLS = [
@@ -67,15 +97,15 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "get_meal_history",
-            "description": "Get meals from last 14 days to avoid repetition",
+            "description": "Get meals from last 14 days to avoid repeating combos",
             "parameters": {"type": "object", "properties": {}, "required": []}
         }
     },
     {
-        "type": "function", 
+        "type": "function",
         "function": {
             "name": "get_expenses",
-            "description": "Get this month expenses and total",
+            "description": "Get this month grocery expenses and total",
             "parameters": {"type": "object", "properties": {}, "required": []}
         }
     },
@@ -83,17 +113,33 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "save_meal_plan",
-            "description": "Save confirmed meal plan",
+            "description": "Save confirmed meal plan to database",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "date": {"type": "string"},
+                    "date": {"type": "string", "description": "YYYY-MM-DD"},
                     "lunch": {"type": "string"},
                     "dinner": {"type": "string"},
                     "is_veg": {"type": "boolean"},
                     "total_protein": {"type": "number"}
                 },
-                "required": ["date", "lunch"]
+                "required": ["date", "lunch", "dinner"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "log_expense",
+            "description": "Log a grocery expense",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "platform": {"type": "string", "enum": ["licious", "instamart", "blinkit", "mango"]},
+                    "amount": {"type": "number"},
+                    "note": {"type": "string"}
+                },
+                "required": ["platform", "amount"]
             }
         }
     }
@@ -112,7 +158,9 @@ async def execute_tool(name: str, args: dict) -> str:
                     headers=sb_headers()
                 )
             data = r.json() if isinstance(r.json(), list) else []
-            return json.dumps(data[:7]) if data else "No history yet"
+            if not data:
+                return "No meal history yet — first week!"
+            return json.dumps([{"date": d["planned_date"], "meal": d["lunch"]} for d in data[:7]])
 
         elif name == "get_expenses":
             now = datetime.now()
@@ -124,16 +172,29 @@ async def execute_tool(name: str, args: dict) -> str:
                 )
             data = r.json() if isinstance(r.json(), list) else []
             total = sum(e.get("amount", 0) for e in data)
-            return json.dumps({"total": total, "target": 38000, "remaining": 38000 - total})
+            by_platform = {}
+            for e in data:
+                p = e.get("platform", "other")
+                by_platform[p] = by_platform.get(p, 0) + e.get("amount", 0)
+            days_passed = datetime.now().day
+            projected = round((total / days_passed) * 31) if days_passed > 0 else 0
+            return json.dumps({
+                "total_spent": total,
+                "by_platform": by_platform,
+                "monthly_target": 38000,
+                "remaining": 38000 - total,
+                "projected_month_end": projected,
+                "days_passed": days_passed
+            })
 
         elif name == "save_meal_plan":
             is_veg = args.get("is_veg", False)
             if isinstance(is_veg, str):
                 is_veg = is_veg.lower() == "true"
-            total_protein = args.get("total_protein", 0)
-            if isinstance(total_protein, str):
-                try: total_protein = float(total_protein)
-                except: total_protein = 0
+            protein = args.get("total_protein", 0)
+            if isinstance(protein, str):
+                try: protein = float(protein)
+                except: protein = 0
             async with httpx.AsyncClient() as client:
                 await client.post(
                     sb_url("meal_plans"),
@@ -144,8 +205,26 @@ async def execute_tool(name: str, args: dict) -> str:
                         "is_veg": is_veg,
                         "lunch": args.get("lunch", ""),
                         "dinner": args.get("dinner", args.get("lunch", "")),
-                        "total_protein": total_protein,
+                        "total_protein": protein,
                         "confirmed": True,
+                    }
+                )
+            return json.dumps({"success": True, "saved": args.get("date")})
+
+        elif name == "log_expense":
+            amount = args.get("amount", 0)
+            if isinstance(amount, str):
+                try: amount = float(amount)
+                except: amount = 0
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    sb_url("expenses"),
+                    headers=sb_headers(),
+                    json={
+                        "platform": args.get("platform", "instamart"),
+                        "amount": amount,
+                        "note": args.get("note", ""),
+                        "expense_date": datetime.now().strftime("%Y-%m-%d"),
                     }
                 )
             return json.dumps({"success": True})
@@ -158,10 +237,16 @@ async def run_agent(messages: list) -> dict:
     now = datetime.now()
     today = now.strftime("%A, %d %B %Y")
     is_veg = now.weekday() == 3
+    day_num = now.weekday()  # 0=Mon, 3=Thu, etc
 
-    # Build message list
+    # Day protein type
+    protein_today = {0: "CHICKEN", 1: "FISH", 2: "CHICKEN", 3: "PANEER (VEG DAY)",
+                     4: "FISH", 5: "CHICKEN", 6: "FISH or PANEER"}[day_num]
+
     chat_messages = [SystemMessage(content=SYSTEM)]
-    chat_messages.append(HumanMessage(content=f"[Today: {today}{' — VEG DAY' if is_veg else ''}. Day {now.day}/31]"))
+    chat_messages.append(HumanMessage(content=
+        f"[Today: {today}. Protein rotation today: {protein_today}. Day {now.day}/31 of month.]"
+    ))
 
     for m in messages[-4:]:
         if m.get("role") == "user":
@@ -169,19 +254,16 @@ async def run_agent(messages: list) -> dict:
         elif m.get("role") == "assistant":
             chat_messages.append(AIMessage(content=m.get("content", "")))
 
-    # Agentic loop — max 3 iterations
-    for _ in range(3):
+    # Agentic loop
+    for _ in range(4):
         response = llm_with_tools.invoke(chat_messages)
         chat_messages.append(response)
 
         if not response.tool_calls:
             break
 
-        # Execute all tool calls
         for tc in response.tool_calls:
-            tool_name = tc["name"]
-            tool_args = tc.get("args", {})
-            result = await execute_tool(tool_name, tool_args)
+            result = await execute_tool(tc["name"], tc.get("args", {}))
             chat_messages.append(ToolMessage(content=result, tool_call_id=tc["id"]))
 
     # Extract final text
@@ -191,7 +273,5 @@ async def run_agent(messages: list) -> dict:
             final = msg.content
             break
 
-    # Clean up
-    final = final.replace("```json", "").replace("```", "").strip()
-
+    final = final.strip()
     return {"response": final, "shopping_list": None, "meal_plan": None}
