@@ -23,9 +23,9 @@ def sb_url(path):
 
 # ── OpenRouter LLM ────────────────────────────────────────────────
 llm = ChatOpenAI(
-    model="openrouter/auto",
-    openai_api_base="https://openrouter.ai/api/v1",
-    openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+    model="llama-3.1-8b-instant",
+    openai_api_base="https://api.groq.com/openai/v1",
+    openai_api_key=os.getenv("GROQ_API_KEY"),
     temperature=0.2,
     max_tokens=1000,
 )
