@@ -25,7 +25,7 @@ def sb_url(path):
 llm = ChatOpenAI(
     model="llama-3.1-8b-instant",
     openai_api_base="https://api.groq.com/openai/v1",
-    openai_api_key=os.getenv("GROQ_API_KEY"),
+    openai_api_key=os.getenv("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"),
     temperature=0.2,
     max_tokens=1000,
 )
