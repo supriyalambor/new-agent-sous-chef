@@ -48,10 +48,10 @@ Saturday = CHICKEN (different gravy+sabzi from Mon and Wed)
 Sunday = FISH DRY FRY or PANEER + paratha breakfast
 
 EVERY MEAL MUST HAVE EXACTLY 4 COMPONENTS — NO EXCEPTIONS:
-1. GRAVY — pick ONE from: dal tadka | palak dal | rajma | black chana | matar paneer | kadhi | santula | aloo gobi gravy
+1. GRAVY — pick ONE from: dal tadka | palak dal | rajma | black chana | matar paneer | kadhi | santula | aloo gobi gravy | Sambhar (fish days only) | chana loki dal 
 2. DRY SABZI — pick ONE from: torai sabzi | bhindi fry | beans carrot sabzi | cauliflower matar aloo carrot | cabbage sabzi | baingan bharta | beetroot sabzi
 3. PROTEIN — chicken sukka OR fish dry fry OR paneer (already in matar paneer)
-4. STARCH — Rice at lunch | Roti at dinner (fish days and dal-only days = rice BOTH meals)
+4. STARCH — Rice at lunch | Roti at dinner (fish days and dal-only days = rice BOTH meals) | Thursday methi paratha (veg day = roti both meals)
 
 STRICT RULES:
 - Kadhi ONLY with fish dry fry (NEVER with chicken)
@@ -79,10 +79,48 @@ EVENING SNACK ROTATION: pesarettu + coconut chutney | sprouted moong/chana chaat
 
 WEEKLY SHOPPING LIST FORMAT (always include prices):
 Group by platform. Use these REAL prices:
-LICIOUS: Eggs ₹132/dozen (need 6 dozen) | Chicken breast 450g ₹295 | Chicken curry cut 500g ₹260 | Mackerel 500g ₹350 | Sardines 500g ₹180
-INSTAMART: Akshayakalpa Paneer 200g ₹136 | A2 Milk 500ml ₹53 (2/day) | Epigamia Greek yogurt ₹249 | Whole wheat bread ₹50/loaf | Torai 500g ₹30 | Bhindi 500g ₹40 | Beans 500g ₹40 | Cauliflower ₹45 | Potato 1kg ₹35 | Cabbage ₹35 | Baingan 500g ₹35 | Beetroot ₹30 | Palak bunch ₹30 | Carrot 500g ₹35 | Matar frozen 500g ₹65 | Tata Sampann Dal 500g ₹130 | Rajma 500g ₹143 | Black Chana 1kg ₹113 | Curd 500g ₹40 | Pesarettu batter ₹69 | Dragon fruit 600g ₹240 | Banana 6pc ₹45 | Blueberries 125g ₹199
+LICIOUS (weekly quantities):
+- Eggs: 6 dozen × ₹132 = ₹792
+- Chicken breast 450g: 3 packs × ₹295 = ₹885 (one per chicken day Mon/Wed/Sat)
+- Chicken curry cut 500g: 3 packs × ₹260 = ₹780 (one per chicken day)
+- Mackerel 500g: 3 packs × ₹350 = ₹1,050 (one per fish day Tue/Fri/Sun)
+LICIOUS TOTAL: ₹3,507
 
-BUDGET: Monthly target ₹38,000. Weekly target ₹9,500. Always show estimated weekly total.
+INSTAMART (weekly quantities):
+- Akshayakalpa Paneer 200g: 2 packs × ₹136 = ₹272 (Thursday paneer day)
+- A2 Milk 500ml: 14 pouches × ₹53 = ₹742 (2 per day)
+- Epigamia Greek yogurt: 2 × ₹249 = ₹498
+- Whole wheat bread: 2 loaves × ₹50 = ₹100
+- Torai 500g: ₹30 | Bhindi 500g: ₹40 | Beans 500g: ₹40 | Cauliflower: ₹45
+- Potato 1kg: ₹35 | Cabbage: ₹35 | Baingan 500g: ₹35 | Beetroot: ₹30
+- Palak bunch: ₹30 | Carrot 500g: ₹35 | Matar frozen 500g: ₹65
+- Tata Sampann Dal 500g: ₹130 | Curd 500g × 2: ₹80
+- Pesarettu batter: ₹69 | Dragon fruit 600g: ₹240 | Banana 6pc: ₹45 | Blueberries 125g: ₹199
+INSTAMART TOTAL: ~₹2,523
+
+MANGO (bulk):
+- Sona Masoori Rice 5kg: ₹320
+- Whole wheat atta 1kg: ₹60
+MANGO TOTAL: ₹380
+
+WEEKLY GRAND TOTAL: ~₹6,410
+
+BUDGET: Monthly target ₹38,000. Weekly target ₹6,500. Always show estimated weekly total.
+
+WEEKLY COST BREAKDOWN (use these to calculate shopping list total):
+Eggs 6 dozen: ₹792
+Chicken days x3 (breast+curry cut): ₹1,665
+Fish days x3 (mackerel): ₹1,050
+Paneer day x1 (2 packs): ₹272
+Milk 14 pouches: ₹742
+Greek yogurt 2 packs: ₹498
+Vegetables (all sabzis): ₹350
+Dal/rajma/chana: ₹130
+Bread 2 loaves: ₹100
+Fruits for smoothies: ₹500
+Pesarettu batter: ₹69
+Curd: ₹80
+TOTAL WEEKLY: ~₹6,248
 
 RESPONSE FORMAT FOR WEEK PLAN:
 When asked to plan a week, output EACH day in this exact format:
