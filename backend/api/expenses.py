@@ -3,15 +3,20 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 import os
-from supabase import create_client
+import httpx
 
 router = APIRouter()
-_supabase = None
-def get_supabase():
-    global _supabase
-    if _supabase is None:
-        _supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
-    return _supabase
+
+def get_headers():
+    return {
+        "apikey": os.getenv("SUPABASE_SERVICE_KEY"),
+        "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_KEY')}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+def supabase_url(path):
+    return f"{os.getenv('SUPABASE_URL')}/rest/v1/{path}"
 
 class ExpenseCreate(BaseModel):
     platform: str
@@ -22,21 +27,35 @@ class ExpenseCreate(BaseModel):
 async def get_expenses():
     now = datetime.now()
     month_start = f"{now.year}-{now.month:02d}-01"
-    data = get_supabase().from_("expenses").select("*").gte("expense_date", month_start).order("expense_date", desc=True).execute()
-    total = sum(r["amount"] for r in (data.data or []))
-    return {"expenses": data.data, "total": total}
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            supabase_url(f"expenses?expense_date=gte.{month_start}&order=expense_date.desc"),
+            headers=get_headers()
+        )
+        data = r.json()
+    total = sum(e["amount"] for e in (data if isinstance(data, list) else []))
+    return {"expenses": data, "total": total}
 
 @router.post("/")
 async def add_expense(expense: ExpenseCreate):
-    data = get_supabase().from_("expenses").insert({
-        "platform": expense.platform,
-        "amount": expense.amount,
-        "note": expense.note,
-        "expense_date": datetime.now().strftime("%Y-%m-%d"),
-    }).select().execute()
-    return data.data[0]
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            supabase_url("expenses"),
+            headers=get_headers(),
+            json={
+                "platform": expense.platform,
+                "amount": expense.amount,
+                "note": expense.note,
+                "expense_date": datetime.now().strftime("%Y-%m-%d"),
+            }
+        )
+        return r.json()[0] if r.status_code == 201 else r.json()
 
 @router.delete("/{expense_id}")
 async def delete_expense(expense_id: str):
-    get_supabase().from_("expenses").delete().eq("id", expense_id).execute()
+    async with httpx.AsyncClient() as client:
+        await client.delete(
+            supabase_url(f"expenses?id=eq.{expense_id}"),
+            headers=get_headers()
+        )
     return {"success": True}

@@ -7,15 +7,19 @@ from langgraph.prebuilt import ToolNode
 import os
 import json
 from datetime import datetime, timedelta
-from supabase import create_client
+import httpx
 
-# ── Supabase (lazy init) ─────────────────────────────────────────
-_supabase = None
-def get_supabase():
-    global _supabase
-    if _supabase is None:
-        _supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
-    return _supabase
+def sb_headers():
+    key = os.getenv("SUPABASE_SERVICE_KEY")
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+def sb_url(path):
+    return f"{os.getenv('SUPABASE_URL')}/rest/v1/{path}"
 
 # ── OpenRouter LLM ────────────────────────────────────────────────
 llm = ChatOpenAI(
