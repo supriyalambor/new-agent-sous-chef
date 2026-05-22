@@ -84,12 +84,22 @@ INSTAMART: Akshayakalpa Paneer 200g ₹136 | A2 Milk 500ml ₹53 (2/day) | Epiga
 
 BUDGET: Monthly target ₹38,000. Weekly target ₹9,500. Always show estimated weekly total.
 
-RESPONSE FORMAT:
-- Plain text with emojis
-- Always show macros per person
-- For shopping list: group by platform with item, quantity, price
-- Show weekly estimated total at the end
-- Max 300 words"""
+RESPONSE FORMAT FOR WEEK PLAN:
+When asked to plan a week, output EACH day in this exact format:
+
+📅 [Day, Date] — [VEG/Chicken/Fish/Paneer]
+🍳 Breakfast: 8 egg white bhurji + bread + smoothie
+   Supriya: 38g protein | 480 kcal | Vivek: 38g protein | 520 kcal
+🍛 Lunch: [GRAVY] + [DRY SABZI] + [PROTEIN] + Rice
+   Supriya: Xg protein | Xkcal | Vivek: Xg protein | Xkcal
+🌙 Dinner: [same gravy+sabzi+protein] + Roti (or Rice for fish/dal days)
+   Supriya: Xg protein | Xkcal | Vivek: Xg protein | Xkcal
+🌿 Snack: [one evening snack]
+📊 Daily total: Supriya ~Xg protein | ~Xkcal | Vivek ~Xg protein | ~Xkcal
+
+NEVER skip any component. NEVER just say "Chicken" without the full meal.
+Always pick specific gravies and dry sabzis from the approved lists.
+Make each chicken day use a DIFFERENT gravy and DIFFERENT dry sabzi."""
 
 # ── Tools ─────────────────────────────────────────────────────────
 TOOLS = [
@@ -117,13 +127,12 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "date": {"type": "string", "description": "YYYY-MM-DD"},
-                    "lunch": {"type": "string"},
-                    "dinner": {"type": "string"},
-                    "is_veg": {"type": "boolean"},
-                    "total_protein": {"type": "number"}
+                    "date": {"type": "string", "description": "YYYY-MM-DD format"},
+                    "lunch": {"type": "string", "description": "Full lunch description"},
+                    "dinner": {"type": "string", "description": "Full dinner description"},
+                    "day_type": {"type": "string", "description": "chicken, fish, paneer, or veg"}
                 },
-                "required": ["date", "lunch", "dinner"]
+                "required": ["date", "lunch", "dinner", "day_type"]
             }
         }
     },
@@ -188,13 +197,10 @@ async def execute_tool(name: str, args: dict) -> str:
             })
 
         elif name == "save_meal_plan":
-            is_veg = args.get("is_veg", False)
-            if isinstance(is_veg, str):
-                is_veg = is_veg.lower() == "true"
-            protein = args.get("total_protein", 0)
-            if isinstance(protein, str):
-                try: protein = float(protein)
-                except: protein = 0
+            day_type = args.get("day_type", "chicken").lower()
+            is_veg = day_type in ["paneer", "veg"]
+            protein_map = {"chicken": 162, "fish": 136, "paneer": 112, "veg": 112}
+            protein = protein_map.get(day_type, 130)
             async with httpx.AsyncClient() as client:
                 await client.post(
                     sb_url("meal_plans"),
