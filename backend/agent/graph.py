@@ -122,12 +122,27 @@ def plan_week(history: list) -> list:
         if day_type == "fish":
             starch = "Rice"
         elif day_type == "chicken":
-            if i == 5:  # Saturday — 30% chance khichdi special
-                if random.random() < 0.3:
-                    starch = "Khichdi + Chokha"
-                    gravy = "khichdi"
-                    protein = random.choice(["mackerel dry fry", "sardine dry fry"])
+            if i == 5:  # Saturday — 3 options
+                roll = random.random()
+                if roll < 0.3:
+                    # Option A (30%): Khichdi + Chokha + Fish fry
+                    fish_protein = random.choice(["Mackerel Dry Fry", "Sardine Dry Fry"])
+                    meal = f"Khichdi + Chokha + {fish_protein}"
+                    week_plan.append({
+                        "date": date.strftime("%Y-%m-%d"),
+                        "day": date.strftime("%A"),
+                        "day_type": "khichdi",
+                        "lunch": meal,
+                        "dinner": meal,
+                    })
+                    continue  # skip rest of loop
+                elif roll < 0.65:
+                    # Option B (35%): Chicken curry + stuffed paratha + sabzi
+                    stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
+                    starch = f"{stuffing} Stuffed Paratha"
+                    protein = "chicken curry"
                 else:
+                    # Option C (35%): Regular chicken + stuffed paratha
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
             else:
@@ -183,7 +198,9 @@ APPROVED COMBOS (inspiration):
 SHOPPING PRICES (use when asked):
 Licious: Eggs ₹132/doz×6=₹792 | Chicken breast ₹295×3=₹885 | Curry cut ₹260×3=₹780 | Mackerel ₹350×3=₹1,050
 Instamart: Paneer ₹136×2=₹272 | Milk ₹53×14=₹742 | Yogurt ₹249×2=₹498 | Veg ~₹350 | Fruits ~₹500 | Dal ₹130
-Mango: Rice 5kg ₹320 | Atta 1kg ₹60 | Weekly total ~₹6,400
+Mango: Rice 5kg ₹320 | Atta 1kg ₹60
+WEEKLY TOTAL: ~₹6,400 | MONTHLY BUDGET: ₹38,000 (these are different!)
+ALWAYS show the weekly total at the end of every shopping list.
 
 STARCH RULES (based on gravy type):
 - Dal (any) / Kadhi / Rajma / Santula / Sambar → Rice
@@ -205,7 +222,7 @@ Veg day: Supriya ~1,460 kcal/91g protein | Vivek ~1,820 kcal/109g protein
 SHOPPING PRICES (use when asked):
 Licious: Eggs ₹792/week | Chicken ₹1,665/week | Mackerel ₹1,050/week
 Instamart: Paneer ₹272 | Milk ₹742 | Yogurt ₹498 | Veg+Dal+Fruits ~₹980
-Mango: Rice+Atta ₹380 | Weekly total ~₹6,400
+Mango: Rice+Atta ₹380 | Weekly total ~₹6,400 (NOT ₹38,000 — that is monthly budget)
 
 When you receive a MEAL_PLAN in the context, present it nicely in this format:
 
