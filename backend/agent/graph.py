@@ -189,7 +189,7 @@ TOOLS = [
     }},
     {"type": "function", "function": {
         "name": "log_expense",
-        "description": "Log a grocery expense",
+        "description": "Log a grocery expense ONLY when user explicitly says they spent money, e.g. 'I spent 500 on Licious'. Do NOT call this for shopping lists.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -251,9 +251,11 @@ async def execute_tool(name: str, args: dict) -> str:
             if isinstance(amount, str):
                 try: amount = float(amount)
                 except: amount = 0
+            # Convert platform to lowercase to avoid case mismatch
+            platform = args.get("platform", "instamart").lower()
             async with httpx.AsyncClient() as client:
                 await client.post(sb_url("expenses"), headers=sb_headers(),
-                    json={"platform": args.get("platform","instamart"), "amount": amount,
+                    json={"platform": platform, "amount": amount,
                           "note": args.get("note",""), "expense_date": datetime.now().strftime("%Y-%m-%d")})
             return json.dumps({"success": True})
     except Exception as e:
