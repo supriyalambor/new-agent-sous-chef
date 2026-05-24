@@ -244,6 +244,8 @@ Here's your week! 🍽️
 After the plan, ask: "Want macros, quantities, or the shopping list?"
 
 For budget questions use get_expenses tool.
+When user says "I have X at home" or "I ran out of X" → call update_pantry immediately.
+When generating shopping list → ALWAYS call get_pantry first, then remove in-stock items from the list.
 Keep responses warm and SHORT. Only show macros/quantities if asked."""
 
 TOOLS = [
@@ -251,6 +253,23 @@ TOOLS = [
         "name": "get_expenses",
         "description": "Get this month grocery expenses",
         "parameters": {"type": "object", "properties": {}, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "get_pantry",
+        "description": "Get current pantry inventory — what items are already in stock at home",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "update_pantry",
+        "description": "Update pantry when user says they have or don't have items. Call when user says 'I have X' or 'I ran out of X'",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "items_in_stock": {"type": "string", "description": "comma separated items user has e.g. 'rice,dal,atta'"},
+                "items_out_of_stock": {"type": "string", "description": "comma separated items user is out of e.g. 'paneer,milk'"}
+            },
+            "required": []
+        }
     }},
     {"type": "function", "function": {
         "name": "log_expense",
@@ -311,6 +330,39 @@ async def execute_tool(name: str, args: dict) -> str:
             days = datetime.now().day
             return json.dumps({"total": total, "by_platform": by_platform, "target": 38000,
                                "remaining": 38000-total, "projected": round((total/days)*31) if days else 0})
+        elif name == "get_pantry":
+            async with httpx.AsyncClient() as client:
+                r = await client.get(
+                    sb_url("pantry_inventory?select=item,instock&order=item"),
+                    headers=sb_headers()
+                )
+            data = r.json() if isinstance(r.json(), list) else []
+            in_stock = [d["item"] for d in data if d.get("in_stock")]
+            out_of_stock = [d["item"] for d in data if not d.get("in_stock")]
+            return json.dumps({
+                "in_stock": in_stock,
+                "out_of_stock": out_of_stock
+            })
+
+        elif name == "update_pantry":
+            items_in = [i.strip().lower() for i in args.get("items_in_stock", "").split(",") if i.strip()]
+            items_out = [i.strip().lower() for i in args.get("items_out_of_stock", "").split(",") if i.strip()]
+            async with httpx.AsyncClient() as client:
+                for item in items_in:
+                    await client.post(
+                        sb_url("pantry_inventory"),
+                        headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+                        json={"item": item, "in_stock": True}
+                    )
+                for item in items_out:
+                    await client.post(
+                        sb_url("pantry_inventory"),
+                        headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+                        json={"item": item, "in_stock": False}
+                    )
+            all_items = items_in + items_out
+            return json.dumps({"success": True, "updated": all_items})
+
         elif name == "log_expense":
             amount = args.get("amount", 0)
             if isinstance(amount, str):
