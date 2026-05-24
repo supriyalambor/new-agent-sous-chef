@@ -29,8 +29,8 @@ def sb_url(path):
 
 GRAVIES = {
     "fish":    ["kadhi", "palak dal", "sambar", "moong dal", "lauki dal", "santula"],
-    "chicken": ["dal tadka", "palak dal", "rajma", "black chana", "aloo gobi gravy",
-                "moong dal", "lauki dal", "rajma soyabean", "chole"],
+    "chicken": ["dal tadka", "palak dal", "aloo gobi gravy",
+                "moong dal", "lauki dal", "chole"],
     "veg":     ["matar paneer", "rajma soyabean", "chole", "palak paneer",
                 "chana masala", "kadhi", "santula", "moong dal", "rajma", "black chana"],
 }
@@ -113,25 +113,13 @@ def plan_week(history: list) -> list:
         # Pick protein
         protein = random.choice(PROTEINS[day_type])
 
-        # Starch rule — based on GRAVY TYPE not protein type
-        # Dal/Kadhi/Rajma → Rice
-        # Chole/Paneer gravy/Chicken gravy → Paratha
-        # Fish → Rice always
-        rice_gravies = ["dal tadka", "palak dal", "moong dal", "lauki dal",
-                       "kadhi", "rajma", "black chana", "rajma soyabean", "santula",
-                       "sambar"]
-        paratha_gravies = ["chole", "matar paneer", "palak paneer", "chana masala",
-                          "aloo gobi gravy", "paneer handi"]
+        # STARCH RULE — protein type takes priority for chicken/fish
+        # Chicken → always paratha (regardless of gravy)
+        # Fish → always Rice
+        # Veg + paneer/chole gravy → Paratha
+        # Veg + dal/kadhi gravy → Rice
 
         if day_type == "fish":
-            starch = "Rice"
-        elif gravy in paratha_gravies:
-            if i == 5:  # Saturday = stuffed paratha
-                stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
-                starch = f"{stuffing} Stuffed Paratha"
-            else:
-                starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
-        elif gravy in rice_gravies:
             starch = "Rice"
         elif day_type == "chicken":
             if i == 5:  # Saturday — 30% chance khichdi special
@@ -144,6 +132,13 @@ def plan_week(history: list) -> list:
                     starch = f"{stuffing} Stuffed Paratha"
             else:
                 starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+        elif day_type == "veg":
+            veg_paratha_gravies = ["chole", "matar paneer", "palak paneer", 
+                                   "chana masala", "aloo gobi gravy", "paneer handi"]
+            if gravy in veg_paratha_gravies:
+                starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+            else:
+                starch = "Rice"
         else:
             starch = "Rice"
 
