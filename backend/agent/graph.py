@@ -111,10 +111,23 @@ def plan_week(history: list) -> list:
         protein = random.choice(PROTEINS[day_type])
 
         # Starch rule
-        is_fish_or_dal = day_type == "fish" or gravy in ["kadhi", "dal tadka", "palak dal", 
-                          "moong dal", "arhar dal", "lauki dal", "sambar"]
-        lunch_starch = "Rice"
-        dinner_starch = "Rice" if is_fish_or_dal else "Roti"
+        # Fish days = Rice both meals
+        # Chicken weekdays (Mon/Wed) = 3 plain parathas (Supriya) / 4 rotis (Vivek)
+        # Chicken Saturday = Stuffed paratha for both
+        # Veg days = Rice lunch, Roti dinner
+        if day_type == "fish":
+            lunch_starch = "Rice"
+            dinner_starch = "Rice"
+        elif day_type == "chicken" and i == 5:  # Saturday
+            stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
+            lunch_starch = f"{stuffing} Stuffed Paratha"
+            dinner_starch = f"{stuffing} Stuffed Paratha"
+        elif day_type == "chicken":
+            lunch_starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+            dinner_starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+        else:  # veg
+            lunch_starch = "Rice"
+            dinner_starch = "Roti"
 
         lunch = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {lunch_starch}"
         dinner = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {dinner_starch}"
