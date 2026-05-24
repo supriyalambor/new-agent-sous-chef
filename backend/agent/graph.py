@@ -140,11 +140,13 @@ def plan_week(history: list) -> list:
                     # Option B (35%): Chicken curry + stuffed paratha + sabzi
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
-                    protein = "chicken curry"
+                    gravy = "chicken curry"
+                    protein = random.choice(["chicken sukka", "chicken masala", "chicken handi"])
                 else:
                     # Option C (35%): Regular chicken + stuffed paratha
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
+                    protein = random.choice(["chicken sukka", "chicken masala", "chicken handi"])
             else:
                 starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
         elif day_type == "veg":
@@ -196,11 +198,17 @@ APPROVED COMBOS (inspiration):
 - Rajma soyabean + Aloo shimla mirch + Paneer bhurji
 
 SHOPPING PRICES (use when asked):
-Licious: Eggs ₹132/doz×6=₹792 | Chicken breast ₹295×3=₹885 | Curry cut ₹260×3=₹780 | Mackerel ₹350×3=₹1,050
-Instamart: Paneer ₹136×2=₹272 | Milk ₹53×14=₹742 | Yogurt ₹249×2=₹498 | Veg ~₹350 | Fruits ~₹500 | Dal ₹130
-Mango: Rice 5kg ₹320 | Atta 1kg ₹60
-WEEKLY TOTAL: ~₹6,400 | MONTHLY BUDGET: ₹38,000 (these are different!)
+Licious: Eggs ₹139/doz×6=₹834 | Chicken breast ₹295×3=₹885 | Curry cut ₹260×3=₹780 | Mackerel ₹350×3=₹1,050
+Instamart: Paneer ₹136×2=₹272 | Milk ₹53×14=₹742 | Yogurt ₹249×2=₹498
+Mango (buy veggies here — cheaper than Instamart):
+  Beetroot ₹99/kg | Carrot ₹99/kg | Lauki ₹59/kg | Torai ₹129/kg | French beans ₹159/kg
+  Potato ₹29/kg | Tomato ₹51/kg | Capsicum ₹89/kg | Ginger ₹199/kg
+  Kabuli chana ₹196/kg | Rajma ₹184/kg | Moong ₹163/kg
+  Rice 5kg ₹320 | Atta 1kg ₹60
+  Mango/Papaya/fruits ~₹300
+WEEKLY TOTAL: ~₹6,500 | MONTHLY BUDGET: ₹38,000 (these are different!)
 ALWAYS show the weekly total at the end of every shopping list.
+BUY VEGETABLES FROM MANGO — fresher and cheaper than Instamart.
 
 STARCH RULES (based on gravy type):
 - Dal (any) / Kadhi / Rajma / Santula / Sambar → Rice
