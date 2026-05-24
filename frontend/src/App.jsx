@@ -131,8 +131,70 @@ export default function App() {
   }
 
   function renderText(text) {
+    if (!text) return null;
+    
+    // Check if text contains a markdown table
+    const lines = text.split("\n");
+    const hasTable = lines.some(l => l.trim().startsWith("|") && l.includes("|"));
+    
+    if (hasTable) {
+      const parts = [];
+      let tableLines = [];
+      let nonTableLines = [];
+      
+      for (const line of lines) {
+        if (line.trim().startsWith("|")) {
+          if (nonTableLines.length) {
+            parts.push(<span key={parts.length} style={{whiteSpace:"pre-wrap"}}>{nonTableLines.join("\n")}</span>);
+            nonTableLines = [];
+          }
+          tableLines.push(line);
+        } else {
+          if (tableLines.length) {
+            parts.push(renderTable(tableLines, parts.length));
+            tableLines = [];
+          }
+          nonTableLines.push(line);
+        }
+      }
+      if (tableLines.length) parts.push(renderTable(tableLines, parts.length));
+      if (nonTableLines.length) parts.push(<span key={parts.length} style={{whiteSpace:"pre-wrap"}}>{nonTableLines.join("\n")}</span>);
+      return parts;
+    }
+    
     return (text || "").split(/(\*\*[^*]+\*\*)/).map((p, i) =>
       p.startsWith("**") ? <strong key={i} style={{ color: "#fff" }}>{p.slice(2, -2)}</strong> : p
+    );
+  }
+
+  function renderTable(lines, key) {
+    const rows = lines
+      .filter(l => !l.match(/^\|[-| ]+\|$/))
+      .map(l => l.split("|").filter((_, i, a) => i > 0 && i < a.length - 1).map(c => c.trim()));
+    
+    if (!rows.length) return null;
+    const headers = rows[0];
+    const body = rows.slice(1);
+    
+    return (
+      <div key={key} style={{overflowX:"auto", margin:"8px 0"}}>
+        <table style={{borderCollapse:"collapse", width:"100%", fontSize:12}}>
+          <thead>
+            <tr>{headers.map((h,i) => (
+              <th key={i} style={{padding:"6px 10px", background:"#1A1A1A", color:"#4CAF7D", textAlign:"left", borderBottom:"1px solid #333", whiteSpace:"nowrap"}}>{h}</th>
+            ))}</tr>
+          </thead>
+          <tbody>
+            {body.map((row, i) => (
+              <tr key={i} style={{borderBottom:"1px solid #1A1A1A"}}>
+                {row.map((cell, j) => (
+                  <td key={j} style={{padding:"5px 10px", color: cell.startsWith("~") || cell.includes("Total") ? "#F9C23C" : "#F0EBE3", whiteSpace:"nowrap", fontFamily: j > 1 ? "monospace" : "inherit"}}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
 
