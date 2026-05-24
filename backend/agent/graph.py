@@ -129,6 +129,24 @@ Fruits for smoothies: ₹500
 Pesarettu batter: ₹69
 Curd: ₹80
 TOTAL WEEKLY: ~₹6,248
+
+RESPONSE FORMAT — ALWAYS USE THIS TABLE FORMAT:
+When asked to plan meals, output this exact table:
+
+| Day | Menu | Supriya | Vivek |
+|-----|------|---------|-------|
+| Mon 🥩 | BF: Egg whites + smoothie | 45g / 420kcal | 45g / 460kcal |
+| | Lunch: Dal tadka + Torai + Chicken sukka + Rice | 32g / 400kcal | 42g / 500kcal |
+| | Dinner: Same + Roti | 30g / 380kcal | 40g / 470kcal |
+| | **Daily Total** | **~107g / ~1,200kcal** | **~127g / ~1,430kcal** |
+
+CRITICAL — NO REPETITION RULES:
+- Check meal history before planning
+- Each fish day MUST have different dry sabzi (Tue≠Fri≠Sun)
+- Each chicken day MUST have different gravy AND different sabzi (Mon≠Wed≠Sat)
+- If kadhi used Tuesday, use palak dal or sambar on Friday
+- If bhindi used Tuesday, use cabbage or beans carrot on Friday
+- NEVER use same gravy+sabzi combo twice in same week
 """
 
 # ── Tools ─────────────────────────────────────────────────────────
