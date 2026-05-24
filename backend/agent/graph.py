@@ -28,25 +28,28 @@ def sb_url(path):
 # ── Meal planning logic in Python (not LLM) ───────────────────────
 
 GRAVIES = {
-    "fish":    ["kadhi", "palak dal", "sambar", "moong dal", "arhar dal", "lauki dal", "santula"],
-    "chicken": ["dal tadka", "palak dal", "rajma", "black chana", "aloo gobi gravy", 
-                "arhar dal", "moong dal", "lauki dal", "rajma soyabean", "chole"],
-    "veg":     ["matar paneer", "rajma soyabean", "chole", "dal makhani", "palak paneer",
-                "chana masala", "kadhi", "santula", "arhar dal", "moong dal"],
+    "fish":    ["kadhi", "palak dal", "sambar", "moong dal", "lauki dal", "santula"],
+    "chicken": ["dal tadka", "palak dal", "rajma", "black chana", "aloo gobi gravy",
+                "moong dal", "lauki dal", "rajma soyabean", "chole"],
+    "veg":     ["matar paneer", "rajma soyabean", "chole", "palak paneer",
+                "chana masala", "kadhi", "santula", "moong dal", "rajma", "black chana"],
 }
 
 SABZIS = [
     "torai", "bhindi fry", "beans carrot", "cauliflower matar aloo", "cabbage",
     "baingan bharta", "beetroot", "lauki", "parwal", "mix veg",
-    "aloo shimla mirch", "methi", "aloo jeera", "sem sabzi", "kaddu",
+    "aloo shimla mirch", "methi", "aloo jeera", "sem sabzi",
     "tinda", "gawar", "aloo gobi dry"
 ]
 
 PROTEINS = {
     "chicken": ["chicken sukka", "chicken curry", "chicken handi", "chicken masala"],
     "fish":    ["mackerel dry fry", "sardine dry fry", "mackerel rava fry"],
-    "veg":     ["paneer bhurji", "matar paneer", "soyabean curry", "chana"],
+    "veg":     ["soyabean curry", "chana", "paneer"],  # paneer handled via gravy
 }
+
+# Thursday: if no paneer gravy, add paneer bhurji as side
+THU_PANEER_GRAVIES = ["matar paneer", "palak paneer", "paneer handi"]
 
 # Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
 DAY_TYPE = {0:"chicken", 1:"fish", 2:"chicken", 3:"veg", 4:"fish", 5:"chicken", 6:"flex"}
@@ -110,27 +113,46 @@ def plan_week(history: list) -> list:
         # Pick protein
         protein = random.choice(PROTEINS[day_type])
 
-        # Starch rule
-        # Fish days = Rice both meals
-        # Chicken weekdays (Mon/Wed) = 3 plain parathas (Supriya) / 4 rotis (Vivek)
-        # Chicken Saturday = Stuffed paratha for both
-        # Veg days = Rice lunch, Roti dinner
-        if day_type == "fish":
-            lunch_starch = "Rice"
-            dinner_starch = "Rice"
-        elif day_type == "chicken" and i == 5:  # Saturday
-            stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
-            lunch_starch = f"{stuffing} Stuffed Paratha"
-            dinner_starch = f"{stuffing} Stuffed Paratha"
-        elif day_type == "chicken":
-            lunch_starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
-            dinner_starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
-        else:  # veg
-            lunch_starch = "Rice"
-            dinner_starch = "Roti"
+        # Starch rule — based on GRAVY TYPE not protein type
+        # Dal/Kadhi/Rajma → Rice
+        # Chole/Paneer gravy/Chicken gravy → Paratha
+        # Fish → Rice always
+        rice_gravies = ["dal tadka", "palak dal", "moong dal", "lauki dal",
+                       "kadhi", "rajma", "black chana", "rajma soyabean", "santula",
+                       "sambar"]
+        paratha_gravies = ["chole", "matar paneer", "palak paneer", "chana masala",
+                          "aloo gobi gravy", "paneer handi"]
 
-        lunch = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {lunch_starch}"
-        dinner = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {dinner_starch}"
+        if day_type == "fish":
+            starch = "Rice"
+        elif gravy in paratha_gravies:
+            if i == 5:  # Saturday = stuffed paratha
+                stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
+                starch = f"{stuffing} Stuffed Paratha"
+            else:
+                starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+        elif gravy in rice_gravies:
+            starch = "Rice"
+        elif day_type == "chicken":
+            if i == 5:  # Saturday — 30% chance khichdi special
+                if random.random() < 0.3:
+                    starch = "Khichdi + Chokha"
+                    gravy = "khichdi"
+                    protein = random.choice(["mackerel dry fry", "sardine dry fry"])
+                else:
+                    stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
+                    starch = f"{stuffing} Stuffed Paratha"
+            else:
+                starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+        else:
+            starch = "Rice"
+
+        lunch_starch = starch
+        dinner_starch = starch
+
+        meal = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {starch}"
+        lunch = meal
+        dinner = meal
 
         week_plan.append({
             "date": date.strftime("%Y-%m-%d"),
@@ -168,6 +190,14 @@ Licious: Eggs ₹132/doz×6=₹792 | Chicken breast ₹295×3=₹885 | Curry cut
 Instamart: Paneer ₹136×2=₹272 | Milk ₹53×14=₹742 | Yogurt ₹249×2=₹498 | Veg ~₹350 | Fruits ~₹500 | Dal ₹130
 Mango: Rice 5kg ₹320 | Atta 1kg ₹60 | Weekly total ~₹6,400
 
+STARCH RULES (based on gravy type):
+- Dal (any) / Kadhi / Rajma / Santula / Sambar → Rice
+- Chole / Matar paneer / Palak paneer / Paneer handi → Paratha
+- Chicken gravy → 3 Plain Parathas (Supriya) / 4 Rotis (Vivek)
+- Saturday chicken → Stuffed Paratha (aloo/paneer cauliflower/methi/palak)
+- Fish days → Rice always
+- NO roti+dal combo ever
+
 PORTIONS:
 Supriya: chicken 150g | fish 150g | paneer 80g | rice 60g dry | 2 rotis | dal 30g | veg 100g
 Vivek: chicken 200g | fish 200g | paneer 120g | rice 100g dry | 3 rotis | dal 40g | veg 120g
@@ -188,9 +218,9 @@ Here's your week! 🍽️
 
 📅 [Day] — [Chicken/Fish/Veg]
 🍳 BF: Egg whites + smoothie
-🍛 Lunch: [meal]
-🌙 Dinner: [meal]
+🍛 Lunch & Dinner: [meal]
 
+(Lunch and dinner are the same dish cooked once — no need to show separately)
 After the plan, ask: "Want macros, quantities, or the shopping list?"
 
 For budget questions use get_expenses tool.
