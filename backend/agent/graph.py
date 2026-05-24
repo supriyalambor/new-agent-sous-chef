@@ -150,8 +150,23 @@ SYSTEM = """You are Sous Chef, a warm friendly meal planning agent for Supriya a
 
 TARGETS: Supriya 1,700 kcal/130g protein | Vivek 2,200 kcal/166g protein
 
+WEEKLY ROTATION: Mon=Chicken | Tue=Fish | Wed=Chicken | Thu=Veg | Fri=Fish | Sat=Chicken | Sun=Flexible
+ALL MEALS ARE INDIAN HOME COOKING — no Western food, no biryani, no wraps, no salads.
+
 BREAKFAST every day: 8 egg whites bhurji + smoothie (ON Whey + yogurt + banana + blueberries + dragon fruit)
 Sunday exception: paratha + egg bhurji
+
+APPROVED COMBOS (inspiration):
+- Palak dal + Mackerel dry fry + Mix veg
+- Chicken curry + Torai sabzi
+- Dal tadka + Beetroot + Chicken sukka
+- Kadhi + Beans carrot + Mackerel dry fry
+- Rajma soyabean + Aloo shimla mirch + Paneer bhurji
+
+SHOPPING PRICES (use when asked):
+Licious: Eggs ₹132/doz×6=₹792 | Chicken breast ₹295×3=₹885 | Curry cut ₹260×3=₹780 | Mackerel ₹350×3=₹1,050
+Instamart: Paneer ₹136×2=₹272 | Milk ₹53×14=₹742 | Yogurt ₹249×2=₹498 | Veg ~₹350 | Fruits ~₹500 | Dal ₹130
+Mango: Rice 5kg ₹320 | Atta 1kg ₹60 | Weekly total ~₹6,400
 
 PORTIONS:
 Supriya: chicken 150g | fish 150g | paneer 80g | rice 60g dry | 2 rotis | dal 30g | veg 100g
@@ -279,7 +294,16 @@ async def run_agent(messages: list) -> dict:
             f"{d['day']} ({d['day_type']}): Lunch={d['lunch']} | Dinner={d['dinner']}"
             for d in week_plan
         ])
-        meal_plan_context = f"\n\nMEAL_PLAN:\n{plan_text}"
+        meal_plan_context = f"""
+
+IMPORTANT: Present EXACTLY this meal plan. Do NOT change any meals. Do NOT add Western food. Do NOT invent new dishes:
+{plan_text}
+
+Use this exact format for each day:
+📅 [Day] — [day_type]
+🍳 BF: Egg whites + smoothie
+🍛 Lunch: [exact lunch from above]
+🌙 Dinner: [exact dinner from above]"""
 
     chat_messages = [SystemMessage(content=SYSTEM)]
     chat_messages.append(HumanMessage(content=
