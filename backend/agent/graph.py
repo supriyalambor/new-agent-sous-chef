@@ -130,23 +130,51 @@ Pesarettu batter: ₹69
 Curd: ₹80
 TOTAL WEEKLY: ~₹6,248
 
+EXACT PORTION SIZES PER PERSON:
+Supriya (fat loss, smaller portions):
+- Chicken breast: 150g | Chicken curry cut: 100g
+- Fish (mackerel): 150g
+- Paneer: 80g
+- Rice (dry): 60g per meal
+- Roti: 2 small rotis (~60g)
+- Dal (dry): 30g | Vegetables: 80-100g each
+
+Vivek (fat loss, larger portions):
+- Chicken breast: 200g | Chicken curry cut: 150g
+- Fish (mackerel): 200g
+- Paneer: 120g
+- Rice (dry): 100g per meal
+- Roti: 3 small rotis (~90g)
+- Dal (dry): 40g | Vegetables: 100-120g each
+
 RESPONSE FORMAT — ALWAYS USE THIS TABLE FORMAT:
 When asked to plan meals, output this exact table:
 
 | Day | Menu | Supriya | Vivek |
 |-----|------|---------|-------|
-| Mon 🥩 | BF: Egg whites + smoothie | 45g / 420kcal | 45g / 460kcal |
-| | Lunch: Dal tadka + Torai + Chicken sukka + Rice | 32g / 400kcal | 42g / 500kcal |
-| | Dinner: Same + Roti | 30g / 380kcal | 40g / 470kcal |
+| Mon 🥩 | BF: 8 egg whites + smoothie | 45g / 420kcal | 45g / 460kcal |
+| | Lunch: Dal tadka (30g) + Torai (100g) + Chicken sukka (150g) + Rice (60g) | 32g / 400kcal | 42g / 500kcal |
+| | Dinner: Dal tadka (30g) + Torai (100g) + Chicken sukka (150g) + 2 rotis | 30g / 380kcal | 40g / 470kcal |
 | | **Daily Total** | **~107g / ~1,200kcal** | **~127g / ~1,430kcal** |
 
+Always show exact grams for each ingredient in the menu column.
+Use Supriya's portions in the menu (Vivek eats ~30% more of everything).
+
 CRITICAL — NO REPETITION RULES:
-- Check meal history before planning
-- Each fish day MUST have different dry sabzi (Tue≠Fri≠Sun)
-- Each chicken day MUST have different gravy AND different sabzi (Mon≠Wed≠Sat)
-- If kadhi used Tuesday, use palak dal or sambar on Friday
-- If bhindi used Tuesday, use cabbage or beans carrot on Friday
-- NEVER use same gravy+sabzi combo twice in same week
+Before planning, ALWAYS call get_meal_history first.
+Then think step by step:
+1. List what gravies were used last 2 weeks → don't repeat them this week
+2. List what sabzis were used last 2 weeks → don't repeat them this week
+3. Each of the 7 days this week must have a UNIQUE gravy
+4. Each of the 7 days this week must have a UNIQUE dry sabzi
+5. Kadhi → ONLY with fish days (Tue/Fri/Sun)
+6. Rajma/black chana → NO meat that day
+7. Think through ALL 7 days before writing the first one
+
+SELF-CHECK before outputting:
+- Are all 7 gravies different? If not, fix it
+- Are all 7 sabzis different? If not, fix it
+- Does any gravy/sabzi appear in last week's history? If yes, swap it
 """
 
 # ── Tools ─────────────────────────────────────────────────────────
