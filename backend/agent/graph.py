@@ -159,9 +159,6 @@ def plan_week(history: list) -> list:
         else:
             starch = "Rice"
 
-        lunch_starch = starch
-        dinner_starch = starch
-
         meal = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {starch}"
         lunch = meal
         dinner = meal
@@ -219,18 +216,14 @@ STARCH RULES (based on gravy type):
 - NO roti+dal combo ever
 
 PORTIONS:
-Supriya: chicken 150g | fish 150g | paneer 80g | rice 60g dry | 2 rotis | dal 30g | veg 100g
-Vivek: chicken 200g | fish 200g | paneer 120g | rice 100g dry | 3 rotis | dal 40g | veg 120g
+Supriya: chicken 150g | fish 150g | paneer 80g | rice 60g dry | 3 parathas | dal 30g | veg 100g
+Vivek: chicken 200g | fish 200g | paneer 120g | rice 100g dry | 4 rotis | dal 40g | veg 120g
 
 MACROS (daily, use when asked):
 Chicken day: Supriya ~1,580 kcal/107g protein | Vivek ~1,980 kcal/128g protein
 Fish day: Supriya ~1,540 kcal/103g protein | Vivek ~1,920 kcal/123g protein
 Veg day: Supriya ~1,460 kcal/91g protein | Vivek ~1,820 kcal/109g protein
 
-SHOPPING PRICES (use when asked):
-Licious: Eggs ₹792/week | Chicken ₹1,665/week | Mackerel ₹1,050/week
-Instamart: Paneer ₹272 | Milk ₹742 | Yogurt ₹498 | Veg+Dal+Fruits ~₹980
-Mango: Rice+Atta ₹380 | Weekly total ~₹6,400 (NOT ₹38,000 — that is monthly budget)
 
 When you receive a MEAL_PLAN in the context, present it nicely in this format:
 
@@ -333,7 +326,7 @@ async def execute_tool(name: str, args: dict) -> str:
         elif name == "get_pantry":
             async with httpx.AsyncClient() as client:
                 r = await client.get(
-                    sb_url("pantry_inventory?select=item,instock&order=item"),
+                    sb_url("pantry_inventory?select=item,in_stock&order=item"),
                     headers=sb_headers()
                 )
             data = r.json() if isinstance(r.json(), list) else []
@@ -393,19 +386,20 @@ async def run_agent(messages: list) -> dict:
         week_plan = plan_week(history)
         await save_plan(week_plan)
         plan_text = "\n".join([
-            f"{d['day']} ({d['day_type']}): Lunch={d['lunch']} | Dinner={d['dinner']}"
+            f"{d['day']} ({d['day_type']}): {d['lunch']}"
             for d in week_plan
         ])
         meal_plan_context = f"""
 
-IMPORTANT: Present EXACTLY this meal plan. Do NOT change any meals. Do NOT add Western food. Do NOT invent new dishes:
+MEAL PLAN GENERATED — present EXACTLY as below. Do NOT rewrite or change anything:
 {plan_text}
 
-Use this exact format for each day:
+Format each day EXACTLY like this:
 📅 [Day] — [day_type]
 🍳 BF: Egg whites + smoothie
-🍛 Lunch: [exact lunch from above]
-🌙 Dinner: [exact dinner from above]"""
+🍛 Lunch & Dinner: [exact meal]
+
+Do not show Lunch and Dinner separately."""
 
     chat_messages = [SystemMessage(content=SYSTEM)]
     chat_messages.append(HumanMessage(content=
@@ -414,7 +408,11 @@ Use this exact format for each day:
 
     for m in messages[-4:]:
         if m.get("role") == "user":
-            chat_messages.append(HumanMessage(content=m["content"]))
+            # If we already have a meal plan, replace user message to avoid LLM replanning
+            if wants_plan and m == messages[-1]:
+                chat_messages.append(HumanMessage(content="Present the meal plan above exactly as instructed."))
+            else:
+                chat_messages.append(HumanMessage(content=m["content"]))
         elif m.get("role") == "assistant":
             chat_messages.append(AIMessage(content=m.get("content", "")))
 
