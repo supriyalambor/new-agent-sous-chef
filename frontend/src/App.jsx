@@ -222,11 +222,11 @@ export default function App() {
           </div>
           <div style={{ textAlign: "right" }}>
             <span style={{
-              background: isVeg ? "#0D1F12" : "#1A0A09",
-              border: `1px solid ${isVeg ? "#1E3323" : "#3A1510"}`,
-              color: isVeg ? "#4CAF7D" : "#E8473F",
+              background: todayType === "veg" ? "#0D1F12" : "#1A0A09",
+              border: `1px solid ${todayType === "veg" ? "#1E3323" : "#3A1510"}`,
+              color: todayType === "veg" ? "#4CAF7D" : "#E8473F",
               fontSize: 10, padding: "3px 10px", borderRadius: 20, fontWeight: 600,
-            }}>{isVeg ? "🥦 Veg Day" : "🥩 Non-Veg"}</span>
+            }}>{todayType === "veg" ? "🥦 Veg Day" : "🥩 Non-Veg"}</span>
             <p style={{ margin: "6px 0 0", fontSize: 17, fontWeight: 700, fontFamily: "monospace", color: totalMonth > 38000 ? "#E8473F" : "#F0EBE3" }}>{fmt(totalMonth)}</p>
             <p style={{ margin: "1px 0 0", fontSize: 9, color: "#444", fontFamily: "monospace" }}>proj. {fmt(projected)}</p>
           </div>
