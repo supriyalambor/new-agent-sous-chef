@@ -12,17 +12,16 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const PLATFORMS = {
   licious:   { label: "Licious",   color: "#E8473F", emoji: "🥩", search: q => `https://www.licious.in/search?q=${encodeURIComponent(q)}` },
   instamart: { label: "Instamart", color: "#FC8019", emoji: "🛍️", search: q => `https://www.swiggy.com/instamart/search?query=${encodeURIComponent(q)}` },
-  blinkit:   { label: "Blinkit",   color: "#F9C23C", emoji: "💛", search: q => `https://blinkit.com/s/?q=${encodeURIComponent(q)}` },
+  blinkit:   { label: "Blinkit",   color: "#161614", emoji: "💛", search: q => `https://blinkit.com/s/?q=${encodeURIComponent(q)}` },
   mango:     { label: "Mango",     color: "#4CAF7D", emoji: "🏪", search: q => `https://www.google.com/search?q=mango+hypermarket+${encodeURIComponent(q)}` },
 };
 
 const TODAY = new Date();
-const DAY_NAME = TODAY.toLocaleDateString("en-IN", { weekday: "long" });
 const DATE_LABEL = TODAY.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" });
 const DAY_OF_MONTH = TODAY.getDate();
-// Sun=0,Mon=1,Tue=2,Wed=3,Thu=4,Fri=5,Sat=6
 const DAY_TYPES = { 0:"flex", 1:"chicken", 2:"fish", 3:"chicken", 4:"veg", 5:"fish", 6:"chicken" };
 const DAY_LABELS = { chicken:"🥩 Chicken day", fish:"🐟 Fish day", veg:"🥦 Veg day", flex:"🍽️ Flexible day" };
+const DAY_COLORS = { chicken: { bg:"#1A0A09", border:"#3A1510", text:"#E8473F" }, fish: { bg:"#0A0E1A", border:"#151E3A", text:"#4A9EE8" }, veg: { bg:"#0D1F12", border:"#1E3323", text:"#4CAF7D" }, flex: { bg:"#1A1A0A", border:"#33330F", text:"#F9C23C" } };
 const todayType = DAY_TYPES[TODAY.getDay()];
 
 function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
@@ -135,16 +134,12 @@ export default function App() {
 
   function renderText(text) {
     if (!text) return null;
-    
-    // Check if text contains a markdown table
     const lines = text.split("\n");
     const hasTable = lines.some(l => l.trim().startsWith("|") && l.includes("|"));
-    
     if (hasTable) {
       const parts = [];
       let tableLines = [];
       let nonTableLines = [];
-      
       for (const line of lines) {
         if (line.trim().startsWith("|")) {
           if (nonTableLines.length) {
@@ -164,7 +159,6 @@ export default function App() {
       if (nonTableLines.length) parts.push(<span key={parts.length} style={{whiteSpace:"pre-wrap"}}>{nonTableLines.join("\n")}</span>);
       return parts;
     }
-    
     return (text || "").split(/(\*\*[^*]+\*\*)/).map((p, i) =>
       p.startsWith("**") ? <strong key={i} style={{ color: "#fff" }}>{p.slice(2, -2)}</strong> : p
     );
@@ -174,11 +168,9 @@ export default function App() {
     const rows = lines
       .filter(l => !l.match(/^\|[-| ]+\|$/))
       .map(l => l.split("|").filter((_, i, a) => i > 0 && i < a.length - 1).map(c => c.trim()));
-    
     if (!rows.length) return null;
     const headers = rows[0];
     const body = rows.slice(1);
-    
     return (
       <div key={key} style={{overflowX:"auto", margin:"8px 0"}}>
         <table style={{borderCollapse:"collapse", width:"100%", fontSize:12}}>
@@ -203,6 +195,7 @@ export default function App() {
 
   const projected = DAY_OF_MONTH > 0 ? Math.round((totalMonth / DAY_OF_MONTH) * 31) : 0;
   const budgetPct = Math.min((totalMonth / 38000) * 100, 100);
+  const dayColor = DAY_COLORS[todayType];
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#080808", color: "#F0EBE3", fontFamily: "'Inter',sans-serif", maxWidth: 480, margin: "0 auto" }}>
@@ -222,11 +215,11 @@ export default function App() {
           </div>
           <div style={{ textAlign: "right" }}>
             <span style={{
-              background: isVeg ? "#0D1F12" : "#1A0A09",
-              border: `1px solid ${isVeg ? "#1E3323" : "#3A1510"}`,
-              color: isVeg ? "#4CAF7D" : "#E8473F",
+              background: dayColor.bg,
+              border: `1px solid ${dayColor.border}`,
+              color: dayColor.text,
               fontSize: 10, padding: "3px 10px", borderRadius: 20, fontWeight: 600,
-            }}>{isVeg ? "🥦 Veg Day" : "🥩 Non-Veg"}</span>
+            }}>{DAY_LABELS[todayType]}</span>
             <p style={{ margin: "6px 0 0", fontSize: 17, fontWeight: 700, fontFamily: "monospace", color: totalMonth > 38000 ? "#E8473F" : "#F0EBE3" }}>{fmt(totalMonth)}</p>
             <p style={{ margin: "1px 0 0", fontSize: 9, color: "#444", fontFamily: "monospace" }}>proj. {fmt(projected)}</p>
           </div>
@@ -299,7 +292,6 @@ export default function App() {
               );
             })}
 
-            {/* Quick actions */}
             {messages.length <= 1 && (
               <div style={{ marginLeft: 42, marginBottom: 16 }}>
                 <p style={{ margin: "0 0 10px", fontSize: 11, color: "#444" }}>Quick actions</p>
@@ -315,7 +307,6 @@ export default function App() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Quick replies */}
           {messages.length > 2 && !loading && (
             <div style={{ padding: "8px 16px 0", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
               {QUICK_ACTIONS.slice(0, 4).map((a, i) => (
@@ -326,7 +317,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Input */}
           <div style={{ padding: "10px 16px 24px", borderTop: "1px solid #141414", flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#111", border: `1px solid ${listening ? "#E8473F" : "#222"}`, borderRadius: 24, padding: "6px 6px 6px 16px", transition: "border-color 0.2s" }}>
               <input
@@ -423,7 +413,6 @@ export default function App() {
       {/* ── Expenses Tab ── */}
       {activeTab === "expenses" && (
         <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-          {/* Summary */}
           <div style={{ background: "#111", border: "1px solid #1E1E1E", borderRadius: 16, padding: 16, marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
               <div>
@@ -441,7 +430,6 @@ export default function App() {
             <p style={{ margin: "6px 0 0", fontSize: 10, color: "#444", fontFamily: "monospace" }}>Budget ₹38,000 · Day {DAY_OF_MONTH}/31</p>
           </div>
 
-          {/* Platform breakdown */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
             {Object.entries(PLATFORMS).map(([pid, pconf]) => {
               const amt = expenses.filter(e => e.platform === pid).reduce((a, b) => a + b.amount, 0);
@@ -456,7 +444,6 @@ export default function App() {
             })}
           </div>
 
-          {/* Add expense */}
           <div style={{ background: "#111", border: "1px solid #1E1E1E", borderRadius: 12, padding: 14, marginBottom: 16 }}>
             <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#888" }}>Log expense</p>
             <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
@@ -473,7 +460,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Expense list */}
           {expenses.slice(0, 15).map(exp => {
             const p = PLATFORMS[exp.platform] || PLATFORMS.instamart;
             return (
