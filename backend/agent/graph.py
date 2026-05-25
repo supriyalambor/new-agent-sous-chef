@@ -32,7 +32,7 @@ GRAVIES = {
     "chicken": ["dal tadka", "palak dal", "aloo gobi gravy",
                 "moong dal", "lauki dal", "chole"],
     "veg":     ["matar paneer", "rajma soyabean", "chole", "palak paneer",
-                "chana masala", "kadhi", "santula", "moong dal", "rajma", "black chana"],
+                "chana masala", "paneer handi", "kadhi", "santula", "moong dal", "rajma", "black chana"],
 }
 
 SABZIS = [
@@ -69,16 +69,10 @@ def plan_week(history: list) -> list:
             if s in meal:
                 used_sabzis.add(s)
 
-    # Get current Monday
+    # Get next Monday (or today if Monday)
     today = datetime.now()
     days_until_monday = (7 - today.weekday()) % 7
-    if days_until_monday == 0:
-        monday = today
-    else:
-        monday = today + timedelta(days=days_until_monday)
-    # If today is Monday use today
-    if today.weekday() == 0:
-        monday = today
+    monday = today if days_until_monday == 0 else today + timedelta(days=days_until_monday)
 
     week_plan = []
     used_this_week_gravies = set()
@@ -187,7 +181,7 @@ SYSTEM = """You are Sous Chef, a warm friendly meal planning agent for Supriya a
 TARGETS: Supriya 1,700 kcal/130g protein | Vivek 2,200 kcal/166g protein
 
 WEEKLY ROTATION: Mon=Chicken | Tue=Fish | Wed=Chicken | Thu=Veg | Fri=Fish | Sat=Chicken | Sun=Flexible
-ALL MEALS ARE INDIAN HOME COOKING — no Western food, no biryani, no wraps, no salads.
+ALL MEALS ARE INDIAN HOME COOKING ONLY — no Western food, no biryani, no wraps, no salads, no fusion. Only traditional Indian home food.
 
 BREAKFAST every day: 8 egg whites bhurji + smoothie (ON Whey + yogurt + banana + blueberries + dragon fruit)
 Sunday exception: paratha + egg bhurji
@@ -292,7 +286,8 @@ async def get_history() -> list:
             sb_url(f"meal_plans?planned_date=gte.{since}&order=planned_date.desc&select=planned_date,lunch"),
             headers=sb_headers()
         )
-    data = r.json() if isinstance(r.json(), list) else []
+    raw = r.json()
+    data = raw if isinstance(raw, list) else []
     return [{"date": d["planned_date"], "meal": d["lunch"]} for d in data]
 
 async def save_plan(week_plan: list):
@@ -304,7 +299,7 @@ async def save_plan(week_plan: list):
                 json={
                     "planned_date": day["date"],
                     "day_of_week": day["day"][:3],
-                    "is_veg": day["day_type"] in ["veg", "khichdi"],
+                    "is_veg": day["day_type"] == "veg",
                     "lunch": day["lunch"],
                     "dinner": day["dinner"],
                     "total_protein": {"chicken":162,"fish":136,"veg":112,"khichdi":136}.get(day["day_type"],130),
@@ -319,7 +314,8 @@ async def execute_tool(name: str, args: dict) -> str:
             month_start = f"{now.year}-{now.month:02d}-01"
             async with httpx.AsyncClient() as client:
                 r = await client.get(sb_url(f"expenses?expense_date=gte.{month_start}"), headers=sb_headers())
-            data = r.json() if isinstance(r.json(), list) else []
+            raw = r.json()
+            data = raw if isinstance(raw, list) else []
             total = sum(e.get("amount", 0) for e in data)
             by_platform = {}
             for e in data:
@@ -333,7 +329,8 @@ async def execute_tool(name: str, args: dict) -> str:
                     sb_url("pantry_inventory?select=item,in_stock&order=item"),
                     headers=sb_headers()
                 )
-            data = r.json() if isinstance(r.json(), list) else []
+            raw = r.json()
+            data = raw if isinstance(raw, list) else []
             in_stock = [d["item"] for d in data if d.get("in_stock")]
             out_of_stock = [d["item"] for d in data if not d.get("in_stock")]
             return json.dumps({
@@ -380,7 +377,7 @@ async def run_agent(messages: list) -> dict:
     user_message = messages[-1].get("content", "").lower() if messages else ""
 
     # Check if user wants a week plan
-    wants_plan = any(w in user_message for w in ["plan my week", "plan week", "plan next week", "plan today", "weekly menu", "plan meals", "meal plan"])
+    wants_plan = any(w in user_message for w in ["plan my week", "plan week", "plan next week", "weekly menu", "plan meals", "meal plan"])
 
     meal_plan_context = ""
     week_plan = None
@@ -389,8 +386,12 @@ async def run_agent(messages: list) -> dict:
         history = await get_history()
         week_plan = plan_week(history)
         await save_plan(week_plan)
+        def format_day_type(dt):
+            labels = {"chicken": "Chicken", "fish": "Fish", "veg": "Veg",
+                     "khichdi": "Khichdi Special", "flex": "Flexible"}
+            return labels.get(dt, dt.title())
         plan_text = "\n".join([
-            f"{d['day']} ({d['day_type']}): {d['lunch']}"
+            f"{d['day']} ({format_day_type(d['day_type'])}): {d['lunch']}"
             for d in week_plan
         ])
         meal_plan_context = f"""
