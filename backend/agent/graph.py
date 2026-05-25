@@ -43,7 +43,7 @@ SABZIS = [
 ]
 
 PROTEINS = {
-    "chicken": ["chicken sukka", "chicken curry", "chicken handi", "chicken masala"],
+    "chicken": ["chicken sukka", "chicken handi", "chicken masala"],
     "fish":    ["mackerel dry fry", "sardine dry fry", "mackerel rava fry"],
     "veg":     ["soyabean curry", "chana", "paneer"],  # paneer handled via gravy
 }
@@ -111,7 +111,12 @@ def plan_week(history: list) -> list:
         used_this_week_sabzis.add(sabzi)
 
         # Pick protein
-        protein = random.choice(PROTEINS[day_type])
+        # On veg days — if gravy is already paneer, don't pick paneer as protein
+        if day_type == "veg" and gravy in THU_PANEER_GRAVIES:
+            veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer"]
+            protein = random.choice(veg_proteins_no_paneer) if veg_proteins_no_paneer else "paneer bhurji"
+        else:
+            protein = random.choice(PROTEINS[day_type])
 
         # STARCH RULE — protein type takes priority for chicken/fish
         # Chicken → always paratha (regardless of gravy)
@@ -224,7 +229,6 @@ Chicken day: Supriya ~1,580 kcal/107g protein | Vivek ~1,980 kcal/128g protein
 Fish day: Supriya ~1,540 kcal/103g protein | Vivek ~1,920 kcal/123g protein
 Veg day: Supriya ~1,460 kcal/91g protein | Vivek ~1,820 kcal/109g protein
 
-
 When you receive a MEAL_PLAN in the context, present it nicely in this format:
 
 Here's your week! 🍽️
@@ -300,10 +304,10 @@ async def save_plan(week_plan: list):
                 json={
                     "planned_date": day["date"],
                     "day_of_week": day["day"][:3],
-                    "is_veg": day["day_type"] == "veg",
+                    "is_veg": day["day_type"] in ["veg", "khichdi"],
                     "lunch": day["lunch"],
                     "dinner": day["dinner"],
-                    "total_protein": {"chicken":162,"fish":136,"veg":112}.get(day["day_type"],130),
+                    "total_protein": {"chicken":162,"fish":136,"veg":112,"khichdi":136}.get(day["day_type"],130),
                     "confirmed": True,
                 }
             )
@@ -376,7 +380,7 @@ async def run_agent(messages: list) -> dict:
     user_message = messages[-1].get("content", "").lower() if messages else ""
 
     # Check if user wants a week plan
-    wants_plan = any(w in user_message for w in ["plan", "week", "menu", "meals"])
+    wants_plan = any(w in user_message for w in ["plan my week", "plan week", "plan next week", "plan today", "weekly menu", "plan meals", "meal plan"])
 
     meal_plan_context = ""
     week_plan = None
