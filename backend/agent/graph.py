@@ -77,6 +77,7 @@ def plan_week(history: list) -> list:
     week_plan = []
     used_this_week_gravies = set()
     used_this_week_sabzis = set()
+    used_this_week_proteins = set()
 
     for i in range(7):
         date = monday + timedelta(days=i)
@@ -104,13 +105,18 @@ def plan_week(history: list) -> list:
         sabzi = random.choice(sabzi_pool)
         used_this_week_sabzis.add(sabzi)
 
-        # Pick protein
-        # On veg days — if gravy is already paneer, don't pick paneer as protein
+        # Pick protein — no repeats within same week
         if day_type == "veg" and gravy in THU_PANEER_GRAVIES:
-            veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer"]
+            veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer" and p not in used_this_week_proteins]
+            if not veg_proteins_no_paneer:
+                veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer"]
             protein = random.choice(veg_proteins_no_paneer) if veg_proteins_no_paneer else "paneer bhurji"
         else:
-            protein = random.choice(PROTEINS[day_type])
+            protein_pool = [p for p in PROTEINS[day_type] if p not in used_this_week_proteins]
+            if not protein_pool:
+                protein_pool = PROTEINS[day_type]
+            protein = random.choice(protein_pool)
+        used_this_week_proteins.add(protein)
 
         # STARCH RULE — protein type takes priority for chicken/fish
         # Chicken → always paratha (regardless of gravy)
@@ -140,12 +146,15 @@ def plan_week(history: list) -> list:
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
                     gravy = "chicken curry"
-                    protein = random.choice(["chicken sukka", "chicken masala", "chicken handi"])
+                    protein = ""  # chicken curry IS the protein dish
                 else:
                     # Option C (35%): Regular chicken + stuffed paratha
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
-                    protein = random.choice(["chicken sukka", "chicken masala", "chicken handi"])
+                    protein_pool = [p for p in PROTEINS["chicken"] if p not in used_this_week_proteins]
+                    if not protein_pool:
+                        protein_pool = PROTEINS["chicken"]
+                    protein = random.choice(protein_pool)
             else:
                 starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
         elif day_type == "veg":
@@ -158,7 +167,10 @@ def plan_week(history: list) -> list:
         else:
             starch = "Rice"
 
-        meal = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {starch}"
+        if protein:
+            meal = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {starch}"
+        else:
+            meal = f"{gravy.title()} + {sabzi.title()} + {starch}"
         lunch = meal
         dinner = meal
 
@@ -218,10 +230,10 @@ PORTIONS:
 Supriya: chicken 150g | fish 150g | paneer 80g | rice 60g dry | 3 parathas | dal 30g | veg 100g
 Vivek: chicken 200g | fish 200g | paneer 120g | rice 100g dry | 4 rotis | dal 40g | veg 120g
 
-MACROS (daily, use when asked):
-Chicken day: Supriya ~1,580 kcal/107g protein | Vivek ~1,980 kcal/128g protein
-Fish day: Supriya ~1,540 kcal/103g protein | Vivek ~1,920 kcal/123g protein
-Veg day: Supriya ~1,460 kcal/91g protein | Vivek ~1,820 kcal/109g protein
+TARGETS (show ONLY when user explicitly asks for macros or calories):
+Supriya: 1,700 kcal/day | 130g protein/day
+Vivek: 2,200 kcal/day | 166g protein/day
+Do NOT mention calorie or protein numbers unless the user asks.
 
 When you receive a MEAL_PLAN in the context, present it nicely in this format:
 
