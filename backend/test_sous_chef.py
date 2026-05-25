@@ -223,7 +223,7 @@ for k, v in checks.items():
 
 # ── FINAL ─────────────────────────────────────────────────────────
 print("\n" + "="*50)
-total_checks = len(errors) + sum(1 for l in open('/tmp/test_sous_chef.py').readlines() if "ok(" in l)
+total_checks = len(errors)  # all checks complete
 if errors:
     print(f"🔴 {len(errors)} FAILED:")
     for e in errors: print(e)

@@ -218,10 +218,10 @@ PORTIONS:
 Supriya: chicken 150g | fish 150g | paneer 80g | rice 60g dry | 3 parathas | dal 30g | veg 100g
 Vivek: chicken 200g | fish 200g | paneer 120g | rice 100g dry | 4 rotis | dal 40g | veg 120g
 
-TARGETS (show ONLY when user explicitly asks for macros or calories):
-Supriya: 1,700 kcal/day | 130g protein/day
-Vivek: 2,200 kcal/day | 166g protein/day
-Do NOT mention calorie or protein numbers unless the user asks.
+MACROS (daily, use when asked):
+Chicken day: Supriya ~1,580 kcal/107g protein | Vivek ~1,980 kcal/128g protein
+Fish day: Supriya ~1,540 kcal/103g protein | Vivek ~1,920 kcal/123g protein
+Veg day: Supriya ~1,460 kcal/91g protein | Vivek ~1,820 kcal/109g protein
 
 When you receive a MEAL_PLAN in the context, present it nicely in this format:
 

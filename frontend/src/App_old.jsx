@@ -17,13 +17,10 @@ const PLATFORMS = {
 };
 
 const TODAY = new Date();
+const isVeg = TODAY.getDay() === 4;
 const DAY_NAME = TODAY.toLocaleDateString("en-IN", { weekday: "long" });
 const DATE_LABEL = TODAY.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" });
 const DAY_OF_MONTH = TODAY.getDate();
-// Sun=0,Mon=1,Tue=2,Wed=3,Thu=4,Fri=5,Sat=6
-const DAY_TYPES = { 0:"flex", 1:"chicken", 2:"fish", 3:"chicken", 4:"veg", 5:"fish", 6:"chicken" };
-const DAY_LABELS = { chicken:"🥩 Chicken day", fish:"🐟 Fish day", veg:"🥦 Veg day", flex:"🍽️ Flexible day" };
-const todayType = DAY_TYPES[TODAY.getDay()];
 
 function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 
@@ -38,7 +35,7 @@ const QUICK_ACTIONS = [
 export default function App() {
   const [messages, setMessages] = useState([{
     role: "assistant",
-    content: `Hey! 👋 I'm your Sous Chef.\n\nI know your meals, your macros, and your budget.\n${DAY_LABELS[todayType]} today.\n\nWhat do you need?`,
+    content: `Hey Supriya! 👋 I'm your Sous Chef.\n\n${isVeg ? "🥦 Thursday — veg day today!" : `🥩 ${DAY_NAME} — non-veg day.`}\n\nI know your macros, your dishes, and your budget. What do you need?`,
     type: "text",
   }]);
   const [input, setInput] = useState("");
