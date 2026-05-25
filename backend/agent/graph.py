@@ -32,7 +32,7 @@ GRAVIES = {
     "chicken": ["dal tadka", "palak dal", "aloo gobi gravy",
                 "moong dal", "lauki dal", "chole"],
     "veg":     ["matar paneer", "rajma soyabean", "chole", "palak paneer",
-                "chana masala", "paneer handi", "kadhi", "santula", "moong dal", "rajma", "black chana"],
+                "chana masala", "paneer handi", "santula", "moong dal", "rajma", "black chana"],
 }
 
 SABZIS = [
@@ -77,7 +77,7 @@ def plan_week(history: list) -> list:
     week_plan = []
     used_this_week_gravies = set()
     used_this_week_sabzis = set()
-    used_this_week_proteins = set()
+    used_this_week_proteins = {}  # per day_type to avoid cross-type conflicts
 
     for i in range(7):
         date = monday + timedelta(days=i)
@@ -96,52 +96,66 @@ def plan_week(history: list) -> list:
         used_this_week_gravies.add(gravy)
 
         # Pick sabzi not used this week or recently
-        sabzi_pool = [s for s in SABZIS 
-                      if s not in used_this_week_sabzis and s not in used_sabzis]
+        # Explicit conflict map: if gravy contains key, exclude sabzis containing value
+        GRAVY_SABZI_CONFLICTS = {
+            "aloo gobi": ["aloo", "gobi"],
+            "lauki dal": ["lauki"],
+            "matar paneer": ["matar"],
+            "palak dal": ["palak"],
+        }
+        def sabzi_conflicts(gravy, sabzi):
+            for gravy_key, blocked_words in GRAVY_SABZI_CONFLICTS.items():
+                if gravy_key in gravy.lower():
+                    if any(w in sabzi.lower().split() for w in blocked_words):
+                        return True
+            return False
+
+        sabzi_pool = [s for s in SABZIS
+                      if s not in used_this_week_sabzis and s not in used_sabzis
+                      and not sabzi_conflicts(gravy, s)]
         if not sabzi_pool:
-            sabzi_pool = [s for s in SABZIS if s not in used_this_week_sabzis]
+            sabzi_pool = [s for s in SABZIS if s not in used_this_week_sabzis and not sabzi_conflicts(gravy, s)]
+        if not sabzi_pool:
+            sabzi_pool = [s for s in SABZIS if not sabzi_conflicts(gravy, s)]
         if not sabzi_pool:
             sabzi_pool = SABZIS
         sabzi = random.choice(sabzi_pool)
         used_this_week_sabzis.add(sabzi)
 
-        # Pick protein — no repeats within same week
+        # Saturday special — decide option BEFORE picking protein to avoid wasting a protein slot
+        sat_roll = random.random() if (day_type == "chicken" and i == 5) else None
+        if sat_roll is not None and sat_roll < 0.3:
+            # Option A (30%): Khichdi + Chokha + Fish fry
+            fish_protein = random.choice(["Mackerel Dry Fry", "Sardine Dry Fry"])
+            meal = f"Khichdi + Chokha + {fish_protein}"
+            week_plan.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "day": date.strftime("%A"),
+                "day_type": "khichdi",
+                "lunch": meal,
+                "dinner": meal,
+            })
+            continue  # skip rest of loop
+
+        # Pick protein — no repeats within same week per day type
         if day_type == "veg" and gravy in THU_PANEER_GRAVIES:
-            veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer" and p not in used_this_week_proteins]
+            veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer" and p not in used_this_week_proteins.get("veg", set())]
             if not veg_proteins_no_paneer:
                 veg_proteins_no_paneer = [p for p in PROTEINS["veg"] if p != "paneer"]
             protein = random.choice(veg_proteins_no_paneer) if veg_proteins_no_paneer else "paneer bhurji"
         else:
-            protein_pool = [p for p in PROTEINS[day_type] if p not in used_this_week_proteins]
+            protein_pool = [p for p in PROTEINS[day_type] if p not in used_this_week_proteins.get(day_type, set())]
             if not protein_pool:
                 protein_pool = PROTEINS[day_type]
             protein = random.choice(protein_pool)
-        used_this_week_proteins.add(protein)
+        used_this_week_proteins.setdefault(day_type, set()).add(protein)
 
-        # STARCH RULE — protein type takes priority for chicken/fish
-        # Chicken → always paratha (regardless of gravy)
-        # Fish → always Rice
-        # Veg + paneer/chole gravy → Paratha
-        # Veg + dal/kadhi gravy → Rice
-
+        # STARCH RULE
         if day_type == "fish":
             starch = "Rice"
         elif day_type == "chicken":
-            if i == 5:  # Saturday — 3 options
-                roll = random.random()
-                if roll < 0.3:
-                    # Option A (30%): Khichdi + Chokha + Fish fry
-                    fish_protein = random.choice(["Mackerel Dry Fry", "Sardine Dry Fry"])
-                    meal = f"Khichdi + Chokha + {fish_protein}"
-                    week_plan.append({
-                        "date": date.strftime("%Y-%m-%d"),
-                        "day": date.strftime("%A"),
-                        "day_type": "khichdi",
-                        "lunch": meal,
-                        "dinner": meal,
-                    })
-                    continue  # skip rest of loop
-                elif roll < 0.65:
+            if i == 5:  # Saturday Options B or C
+                if sat_roll < 0.65:
                     # Option B (35%): Chicken curry + stuffed paratha + sabzi
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
@@ -151,10 +165,6 @@ def plan_week(history: list) -> list:
                     # Option C (35%): Regular chicken + stuffed paratha
                     stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
                     starch = f"{stuffing} Stuffed Paratha"
-                    protein_pool = [p for p in PROTEINS["chicken"] if p not in used_this_week_proteins]
-                    if not protein_pool:
-                        protein_pool = PROTEINS["chicken"]
-                    protein = random.choice(protein_pool)
             else:
                 starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
         elif day_type == "veg":

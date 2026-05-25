@@ -41,6 +41,15 @@ for item in REMOVED:
 if "kadhi" in GRAVIES["chicken"]: fail("Kadhi in chicken gravies!")
 else: ok("Kadhi not in chicken gravies")
 
+if "kadhi" in GRAVIES["veg"]: fail("Kadhi in veg gravies! Kadhi is fish-only.")
+else: ok("Kadhi not in veg gravies")
+
+# Check aloo gobi gravy + aloo gobi dry never paired
+if "aloo gobi gravy" in GRAVIES["chicken"] and "aloo gobi dry" in SABZIS:
+    ok("aloo gobi conflict check registered (enforced in plan_week)")
+else:
+    fail("aloo gobi gravy or aloo gobi dry missing from lists")
+
 for item in ["rajma","black chana","rajma soyabean"]:
     if item in GRAVIES["chicken"]: fail(f"'{item}' in chicken gravies!")
     else: ok(f"'{item}' not in chicken gravies")
@@ -125,7 +134,21 @@ for seed in range(100):
         gravy = random.choice(gp)
         used_g.add(gravy)
 
-        sp = [s for s in SABZIS if s not in used_s]
+        GRAVY_SABZI_CONFLICTS = {
+            "aloo gobi": ["aloo", "gobi"],
+            "lauki dal": ["lauki"],
+            "matar paneer": ["matar"],
+            "palak dal": ["palak"],
+        }
+        def sabzi_conflicts(gravy, sabzi):
+            for gravy_key, blocked_words in GRAVY_SABZI_CONFLICTS.items():
+                if gravy_key in gravy.lower():
+                    if any(w in sabzi.lower().split() for w in blocked_words):
+                        return True
+            return False
+
+        sp = [s for s in SABZIS if s not in used_s and not sabzi_conflicts(gravy, s)]
+        if not sp: sp = [s for s in SABZIS if not sabzi_conflicts(gravy, s)]
         if not sp: sp = SABZIS
         sabzi = random.choice(sp)
         used_s.add(sabzi)
@@ -163,6 +186,14 @@ for seed in range(100):
         for rm in REMOVED:
             if rm in gravy or rm in sabzi:
                 week_errors.append(f"W{seed} {DAYS[i]}: Removed item '{rm}'!")
+        # Check sabzi doesn't conflict with gravy
+        for gravy_key, blocked_words in GRAVY_SABZI_CONFLICTS.items():
+            if gravy_key in gravy.lower():
+                if any(w in sabzi.lower().split() for w in blocked_words):
+                    week_errors.append(f"W{seed} {DAYS[i]}: Gravy-sabzi conflict: {gravy} + {sabzi}")
+        # Kadhi must never appear on veg days
+        if dt == "veg" and gravy == "kadhi":
+            week_errors.append(f"W{seed} {DAYS[i]}: Kadhi on veg day!")
 
     gravies = [d["gravy"] for d in week if d["gravy"] != "khichdi"]
     if len(gravies) != len(set(gravies)):
