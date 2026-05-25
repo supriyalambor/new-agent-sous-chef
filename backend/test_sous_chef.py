@@ -1,6 +1,8 @@
 import random, sys, re
 
-with open('/mnt/user-data/outputs/graph.py') as f:
+import os
+graph_path = os.path.join(os.path.dirname(__file__), 'agent', 'graph.py')
+with open(graph_path, encoding="utf-8") as f:
     code = f.read()
 
 def extract_list(name):
