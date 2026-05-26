@@ -411,15 +411,20 @@ async def run_agent(messages: list) -> dict:
     now = datetime.now()
     user_message = messages[-1].get("content", "").lower() if messages else ""
 
-    # Check if user wants a week plan
+    # Check if user wants a week plan or today's plan
     wants_plan = any(w in user_message for w in ["plan my week", "plan week", "plan next week", "weekly menu", "plan meals", "meal plan"])
+    wants_today = any(w in user_message for w in ["plan today", "today's meal", "what should i eat today", "today's plan", "plan for today"])
 
     meal_plan_context = ""
     week_plan = None
 
-    if wants_plan:
+    if wants_plan or wants_today:
         history = await get_history()
         week_plan = plan_week(history)
+        if wants_today:
+            # Only show today
+            today_name = now.strftime("%A")
+            week_plan = [d for d in week_plan if d["day"] == today_name] or [week_plan[0]]
         await save_plan(week_plan)
         def format_day_type(dt):
             labels = {"chicken": "Chicken", "fish": "Fish", "veg": "Veg",
@@ -449,7 +454,7 @@ Do not show Lunch and Dinner separately."""
     for m in messages[-4:]:
         if m.get("role") == "user":
             # If we already have a meal plan, replace user message to avoid LLM replanning
-            if wants_plan and m == messages[-1]:
+            if (wants_plan or wants_today) and m == messages[-1]:
                 chat_messages.append(HumanMessage(content="Present the meal plan above exactly as instructed."))
             else:
                 chat_messages.append(HumanMessage(content=m["content"]))
