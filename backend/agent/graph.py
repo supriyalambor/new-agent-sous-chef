@@ -93,9 +93,9 @@ def plan_week(history: list, avoid: list = None, replace: dict = None) -> list:
             day_type = random.choice(["fish", "veg"])  # never chicken — Mon/Wed/Sat already cover it
 
         # Pick gravy — Saturday restricted to non-dal gravies only (dal+stuffed paratha forbidden)
-        SAT_CHICKEN_GRAVIES = ["chole", "aloo gobi gravy", "chicken curry"]
+        # chicken curry is NOT in this list — it gets assigned in Option B below, not from the pool
+        SAT_CHICKEN_GRAVIES = ["chole", "aloo gobi gravy"]
         if day_type == "chicken" and i == 5:
-            # Saturday: prefer unused, but allow repeats since pool is small
             sat_pool = [g for g in SAT_CHICKEN_GRAVIES if g not in used_this_week_gravies]
             if not sat_pool: sat_pool = SAT_CHICKEN_GRAVIES
             allowed = sat_pool
@@ -110,7 +110,8 @@ def plan_week(history: list, avoid: list = None, replace: dict = None) -> list:
         if not gravy_pool:
             gravy_pool = allowed
         gravy = random.choice(gravy_pool)
-        used_this_week_gravies.add(gravy)
+        # For Saturday Option B, gravy will be overridden to "chicken curry" later
+        # Don't add to used set yet — we'll add after starch block
 
         # Pick sabzi not used this week or recently
         # Explicit conflict map: if gravy contains key, exclude sabzis containing value
@@ -193,18 +194,18 @@ def plan_week(history: list, avoid: list = None, replace: dict = None) -> list:
         else:
             starch = "Rice"
 
-        # Gravies that already contain the protein — no separate protein needed
+        # Protein overrides based on gravy
         GRAVY_CONTAINS_PROTEIN = {"matar paneer", "palak paneer", "paneer handi", "chicken curry"}
-        # Gravies that need paneer bhurji as protein side
+        used_this_week_gravies.add(gravy)  # add after potential Saturday override
         NEEDS_PANEER_BHURJI = {"chole", "aloo gobi gravy", "rajma soyabean", "rajma",
                                 "black chana", "chana masala"}
         if gravy in GRAVY_CONTAINS_PROTEIN:
             protein = ""
-        elif gravy in NEEDS_PANEER_BHURJI:
+        elif day_type == "veg" and gravy in NEEDS_PANEER_BHURJI:
             protein = "paneer bhurji"
         elif day_type == "veg" and gravy not in THU_PANEER_GRAVIES:
-            # Thursday veg rule: if no paneer gravy, always add paneer bhurji
             protein = "paneer bhurji"
+        # chicken/fish days keep their protein even with chole/aloo gobi gravy
 
         if protein:
             meal = f"{gravy.title()} + {sabzi.title()} + {protein.title()} + {starch}"
@@ -581,24 +582,6 @@ async def run_weekly_agent() -> dict:
     # Get all context first
     history = await get_history()
     
-    # LLM-driven planning with full context
-    WEEKLY_SYSTEM = """You are Sous Chef, an autonomous meal planning agent for Supriya and Vivek in Bengaluru.
-
-It's Friday. Your job RIGHT NOW is to:
-1. Call get_preferences() to check their food preferences
-2. Call get_pantry() to see what's already at home
-3. Plan next week using plan_week_tool() — pass avoid/replace lists from preferences
-4. Format the plan as plain text
-5. Generate the shopping list (remove pantry items already in stock)
-6. Call send_weekly_email() with the plan and shopping list
-
-Be smart:
-- Apply preferences — if they avoid moong dal, don't include it
-- If pantry has rice, remove from shopping list
-- Keep it warm and personal in the email
-
-Do all of this NOW without asking questions. Just execute."""
-
     # Build week plan using preferences
     prefs_result = await execute_tool("get_preferences", {})
     prefs = json.loads(prefs_result)

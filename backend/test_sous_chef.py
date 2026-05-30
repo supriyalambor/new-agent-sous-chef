@@ -129,7 +129,7 @@ GRAVIES = {k: extract_dict_list("GRAVIES", k) for k in ["fish","chicken","veg"]}
 PROTEINS = {k: extract_dict_list("PROTEINS", k) for k in ["fish","chicken","veg"]}
 DAL_GRAVIES = extract_set("DAL_GRAVIES")
 REMOVED = ["dal makhani", "arhar dal", "kaddu"]
-SAT_CHICKEN_GRAVIES = ["chole", "aloo gobi gravy", "chicken curry"]  # non-dal only for Saturday
+SAT_CHICKEN_GRAVIES = ["chole", "aloo gobi gravy"]  # non-dal only for Saturday
 
 # Removed items
 for item in REMOVED:
@@ -324,7 +324,7 @@ for seed in range(100):
 
         # Protein overrides
         if gravy in GRAVY_CONTAINS_PROTEIN: protein = ""
-        elif gravy in NEEDS_PANEER_BHURJI: protein = "paneer bhurji"
+        elif dt == "veg" and gravy in NEEDS_PANEER_BHURJI: protein = "paneer bhurji"
         elif dt == "veg" and gravy not in THU_PANEER_GRAVIES: protein = "paneer bhurji"
 
         starch = get_starch(dt, i, gravy)
@@ -345,8 +345,8 @@ for seed in range(100):
             week_errors.append(f"W{seed} {DAYS[i]}: Chicken protein on {dt} day!")
         if any(x in (protein or "") for x in ["mackerel","sardine"]) and dt == "chicken":
             week_errors.append(f"W{seed} {DAYS[i]}: Fish protein on chicken day!")
-        if gravy in NEEDS_PANEER_BHURJI and protein != "paneer bhurji":
-            week_errors.append(f"W{seed} {DAYS[i]}: {gravy} needs paneer bhurji, got '{protein}'")
+        if dt == "veg" and gravy in NEEDS_PANEER_BHURJI and protein != "paneer bhurji":
+            week_errors.append(f"W{seed} {DAYS[i]}: veg+{gravy} needs paneer bhurji, got '{protein}'")
         if gravy in GRAVY_CONTAINS_PROTEIN and protein not in ("","none"):
             week_errors.append(f"W{seed} {DAYS[i]}: {gravy} already has protein, got '{protein}'")
         for rm in REMOVED:
