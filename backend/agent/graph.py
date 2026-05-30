@@ -90,20 +90,25 @@ def plan_week(history: list, avoid: list = None, replace: dict = None) -> list:
         date = monday + timedelta(days=i)
         day_type = DAY_TYPE[i]
         if day_type == "flex":
-            day_type = random.choice(["fish", "chicken", "veg"])
+            day_type = random.choice(["fish", "veg"])  # never chicken — Mon/Wed/Sat already cover it
 
-        # Pick gravy not used this week or recently, respecting preferences
-        all_gravies = [replace.get(g, g) for g in GRAVIES[day_type]]  # apply replacements
-        all_gravies = [g for g in all_gravies if g not in avoid]       # apply avoids
-        if not all_gravies:
-            all_gravies = GRAVIES[day_type]  # fallback if all avoided
+        # Pick gravy — Saturday restricted to non-dal gravies only (dal+stuffed paratha forbidden)
+        SAT_CHICKEN_GRAVIES = ["chole", "aloo gobi gravy", "chicken curry"]
+        if day_type == "chicken" and i == 5:
+            # Saturday: prefer unused, but allow repeats since pool is small
+            sat_pool = [g for g in SAT_CHICKEN_GRAVIES if g not in used_this_week_gravies]
+            if not sat_pool: sat_pool = SAT_CHICKEN_GRAVIES
+            allowed = sat_pool
+        else:
+            allowed = [replace.get(g, g) for g in GRAVIES[day_type]]
+            allowed = [g for g in allowed if g not in avoid]
+            if not allowed: allowed = GRAVIES[day_type]
 
-        gravy_pool = [g for g in all_gravies
-                      if g not in used_this_week_gravies and g not in used_gravies]
+        gravy_pool = [g for g in allowed if g not in used_this_week_gravies and g not in used_gravies]
         if not gravy_pool:
-            gravy_pool = [g for g in all_gravies if g not in used_this_week_gravies]
+            gravy_pool = [g for g in allowed if g not in used_this_week_gravies]
         if not gravy_pool:
-            gravy_pool = all_gravies
+            gravy_pool = allowed
         gravy = random.choice(gravy_pool)
         used_this_week_gravies.add(gravy)
 
