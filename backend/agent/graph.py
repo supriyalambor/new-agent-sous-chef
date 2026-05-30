@@ -153,23 +153,22 @@ def plan_week(history: list) -> list:
             protein = random.choice(protein_pool)
         used_this_week_proteins.setdefault(day_type, set()).add(protein)
 
-        # STARCH RULE — based on gravy type, not day type
-        if day_type == "fish" or gravy in DAL_GRAVIES:
+        # STARCH RULE — Saturday first (overrides dal rule), then gravy-based
+        if day_type == "chicken" and i == 5:  # Saturday
+            if sat_roll < 0.65:
+                # Option B (35%): Chicken curry + stuffed paratha + sabzi
+                stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
+                starch = f"{stuffing} Stuffed Paratha"
+                gravy = "chicken curry"
+                protein = ""  # chicken curry IS the protein dish
+            else:
+                # Option C (35%): Regular chicken + stuffed paratha
+                stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
+                starch = f"{stuffing} Stuffed Paratha"
+        elif day_type == "fish" or gravy in DAL_GRAVIES:
             starch = "Rice"
         elif day_type == "chicken":
-            if i == 5:  # Saturday Options B or C
-                if sat_roll < 0.65:
-                    # Option B (35%): Chicken curry + stuffed paratha + sabzi
-                    stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
-                    starch = f"{stuffing} Stuffed Paratha"
-                    gravy = "chicken curry"
-                    protein = ""  # chicken curry IS the protein dish
-                else:
-                    # Option C (35%): Regular chicken + stuffed paratha
-                    stuffing = random.choice(["Aloo", "Paneer Cauliflower", "Methi", "Palak"])
-                    starch = f"{stuffing} Stuffed Paratha"
-            else:
-                starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
+            starch = "3 Plain Parathas (Supriya) / 4 Rotis (Vivek)"
         elif day_type == "veg":
             veg_paratha_gravies = ["chole", "matar paneer", "palak paneer",
                                    "chana masala", "aloo gobi gravy", "paneer handi"]
@@ -188,6 +187,9 @@ def plan_week(history: list) -> list:
         if gravy in GRAVY_CONTAINS_PROTEIN:
             protein = ""
         elif gravy in NEEDS_PANEER_BHURJI:
+            protein = "paneer bhurji"
+        elif day_type == "veg" and gravy not in THU_PANEER_GRAVIES:
+            # Thursday veg rule: if no paneer gravy, always add paneer bhurji
             protein = "paneer bhurji"
 
         if protein:
@@ -407,6 +409,47 @@ async def execute_tool(name: str, args: dict) -> str:
     except Exception as e:
         return json.dumps({"error": str(e)})
 
+def generate_shopping_list(week_plan: list) -> list:
+    """Generate structured shopping list from the week plan."""
+    items = []
+
+    # Count protein days
+    chicken_days = sum(1 for d in week_plan if d["day_type"] == "chicken")
+    fish_days = sum(1 for d in week_plan if d["day_type"] in ("fish", "khichdi"))
+    has_paneer = any("paneer" in d.get("gravy","") or "paneer bhurji" in d.get("protein","") for d in week_plan)
+
+    # ── Licious ──
+    items.append({"item": "Eggs", "qty": "6 dozen", "platform": "licious", "estimatedPrice": 834})
+    if chicken_days > 0:
+        items.append({"item": "Chicken breast", "qty": f"{chicken_days}×450g", "platform": "licious", "estimatedPrice": chicken_days * 295})
+        items.append({"item": "Chicken curry cut", "qty": f"{chicken_days}×500g", "platform": "licious", "estimatedPrice": chicken_days * 260})
+    if fish_days > 0:
+        items.append({"item": "Mackerel", "qty": f"{fish_days}×500g", "platform": "licious", "estimatedPrice": fish_days * 350})
+
+    # ── Instamart ──
+    if has_paneer:
+        items.append({"item": "Paneer", "qty": "2×200g", "platform": "instamart", "estimatedPrice": 272})
+    items.append({"item": "A2 Milk", "qty": "14×500ml", "platform": "instamart", "estimatedPrice": 742})
+    items.append({"item": "Epigamia Yogurt", "qty": "2", "platform": "instamart", "estimatedPrice": 498})
+
+    # ── Mango ──
+    # Collect vegetables from the week plan
+    sabzis = [d.get("sabzi","") for d in week_plan if d.get("sabzi") and d.get("sabzi") != "none"]
+    veg_price = 350  # approximate
+    items.append({"item": "Vegetables (week)", "qty": ", ".join(set(sabzis)), "platform": "mango", "estimatedPrice": veg_price})
+    items.append({"item": "Fruits (banana, blueberries, dragon fruit)", "qty": "week supply", "platform": "mango", "estimatedPrice": 500})
+
+    # Staples (always)
+    gravies = [d.get("gravy","") for d in week_plan]
+    if any("dal" in g or "kadhi" in g or "sambar" in g for g in gravies):
+        items.append({"item": "Dal / Lentils", "qty": "as needed", "platform": "mango", "estimatedPrice": 130})
+    if any("rice" in d.get("lunch","").lower() for d in week_plan):
+        items.append({"item": "Rice 5kg", "qty": "1", "platform": "mango", "estimatedPrice": 320})
+    if any("paratha" in d.get("lunch","").lower() or "roti" in d.get("lunch","").lower() for d in week_plan):
+        items.append({"item": "Atta 1kg", "qty": "1", "platform": "mango", "estimatedPrice": 60})
+
+    return items
+
 async def run_agent(messages: list) -> dict:
     now = datetime.now()
     user_message = messages[-1].get("content", "").lower() if messages else ""
@@ -415,17 +458,20 @@ async def run_agent(messages: list) -> dict:
     wants_plan = any(w in user_message for w in ["plan my week", "plan week", "plan next week", "weekly menu", "plan meals", "meal plan"])
     wants_today = any(w in user_message for w in ["plan today", "today's meal", "what should i eat today", "today's plan", "plan for today"])
 
+    wants_shopping = any(w in user_message for w in ["shopping list", "shopping", "groceries", "what to buy", "grocery list"])
+
     meal_plan_context = ""
     week_plan = None
+    shopping_list = None
 
     if wants_plan or wants_today:
         history = await get_history()
         week_plan = plan_week(history)
         if wants_today:
-            # Only show today
             today_name = now.strftime("%A")
             week_plan = [d for d in week_plan if d["day"] == today_name] or [week_plan[0]]
         await save_plan(week_plan)
+        shopping_list = generate_shopping_list(week_plan)
         def format_day_type(dt):
             labels = {"chicken": "Chicken", "fish": "Fish", "veg": "Veg",
                      "khichdi": "Khichdi Special", "flex": "Flexible"}
@@ -476,4 +522,4 @@ Do not show Lunch and Dinner separately."""
             final = msg.content
             break
 
-    return {"response": final.strip(), "shopping_list": None, "meal_plan": None}
+    return {"response": final.strip(), "shopping_list": shopping_list, "meal_plan": None}
