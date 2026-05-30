@@ -339,6 +339,8 @@ TOOLS = [
             "required": ["plan_text", "shopping_text"]
         }
     }},
+    {"type": "function", "function": {
+        "name": "log_expense",
         "description": "Log a grocery expense ONLY when user explicitly says they spent money, e.g. 'I spent 500 on Licious'. Do NOT call this for shopping lists.",
         "parameters": {
             "type": "object",
@@ -500,11 +502,12 @@ Have a great week! 💪
                                   "text": body}
                         )
             return json.dumps({"success": True, "sent_to": [supriya_email, vivek_email]})
+
+        elif name == "log_expense":
             amount = args.get("amount", 0)
             if isinstance(amount, str):
                 try: amount = float(amount)
                 except: amount = 0
-            # Convert platform to lowercase to avoid case mismatch
             platform = args.get("platform", "instamart").lower()
             async with httpx.AsyncClient() as client:
                 await client.post(sb_url("expenses"), headers=sb_headers(),
@@ -659,12 +662,16 @@ async def run_agent(messages: list) -> dict:
 
     if wants_plan or wants_today:
         history = await get_history()
-        week_plan = plan_week(history)
+        prefs_raw = await execute_tool("get_preferences", {})
+        prefs = json.loads(prefs_raw)
+        week_plan = plan_week(history, avoid=prefs.get("avoid",[]), replace=prefs.get("replace",{}))
         if wants_today:
             today_name = now.strftime("%A")
             week_plan = [d for d in week_plan if d["day"] == today_name] or [week_plan[0]]
         await save_plan(week_plan)
-        shopping_list = generate_shopping_list(week_plan)
+        pantry_raw = await execute_tool("get_pantry", {})
+        pantry = json.loads(pantry_raw)
+        shopping_list = generate_shopping_list(week_plan, in_stock=pantry.get("in_stock", []))
         def format_day_type(dt):
             labels = {"chicken": "Chicken", "fish": "Fish", "veg": "Veg",
                      "khichdi": "Khichdi Special", "flex": "Flexible"}
