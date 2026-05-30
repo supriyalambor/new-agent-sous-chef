@@ -57,8 +57,12 @@ THU_PANEER_GRAVIES = ["matar paneer", "palak paneer", "paneer handi"]
 # Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
 DAY_TYPE = {0:"chicken", 1:"fish", 2:"chicken", 3:"veg", 4:"fish", 5:"chicken", 6:"flex"}
 
-def plan_week(history: list) -> list:
-    """Generate a week plan with no repeats, enforced in Python."""
+def plan_week(history: list, avoid: list = None, replace: dict = None) -> list:
+    """Generate a week plan with no repeats, enforced in Python.
+    Respects user preferences: avoid list and replace map.
+    """
+    avoid = [a.lower().strip() for a in (avoid or [])]
+    replace = {k.lower().strip(): v.lower().strip() for k, v in (replace or {}).items()}
     
     # Extract used gravies and sabzis from history
     used_gravies = set()
@@ -88,13 +92,18 @@ def plan_week(history: list) -> list:
         if day_type == "flex":
             day_type = random.choice(["fish", "chicken", "veg"])
 
-        # Pick gravy not used this week or recently
-        gravy_pool = [g for g in GRAVIES[day_type]
+        # Pick gravy not used this week or recently, respecting preferences
+        all_gravies = [replace.get(g, g) for g in GRAVIES[day_type]]  # apply replacements
+        all_gravies = [g for g in all_gravies if g not in avoid]       # apply avoids
+        if not all_gravies:
+            all_gravies = GRAVIES[day_type]  # fallback if all avoided
+
+        gravy_pool = [g for g in all_gravies
                       if g not in used_this_week_gravies and g not in used_gravies]
         if not gravy_pool:
-            gravy_pool = [g for g in GRAVIES[day_type] if g not in used_this_week_gravies]
+            gravy_pool = [g for g in all_gravies if g not in used_this_week_gravies]
         if not gravy_pool:
-            gravy_pool = GRAVIES[day_type]
+            gravy_pool = all_gravies
         gravy = random.choice(gravy_pool)
         used_this_week_gravies.add(gravy)
 
@@ -300,7 +309,36 @@ TOOLS = [
         }
     }},
     {"type": "function", "function": {
-        "name": "log_expense",
+        "name": "get_preferences",
+        "description": "Get saved food preferences — items to avoid, replacements, favourites",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "save_preference",
+        "description": "Save a food preference when user says they don't like something, want to replace something, or love something. Call immediately when user expresses a preference.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": ["avoid", "favourite", "replace"], "description": "Type of preference"},
+                "item": {"type": "string", "description": "The food item e.g. 'moong dal', 'bhindi fry'"},
+                "replace_with": {"type": "string", "description": "Only for type=replace: what to use instead e.g. 'chana dal'"},
+                "reason": {"type": "string", "description": "Why e.g. 'doesnt like the taste'"}
+            },
+            "required": ["type", "item"]
+        }
+    }},
+    {"type": "function", "function": {
+        "name": "send_weekly_email",
+        "description": "Send the weekly meal plan and shopping list email to Supriya and Vivek",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "plan_text": {"type": "string", "description": "Formatted weekly meal plan"},
+                "shopping_text": {"type": "string", "description": "Formatted shopping list with prices"}
+            },
+            "required": ["plan_text", "shopping_text"]
+        }
+    }},
         "description": "Log a grocery expense ONLY when user explicitly says they spent money, e.g. 'I spent 500 on Licious'. Do NOT call this for shopping lists.",
         "parameters": {
             "type": "object",
@@ -394,7 +432,74 @@ async def execute_tool(name: str, args: dict) -> str:
             all_items = items_in + items_out
             return json.dumps({"success": True, "updated": all_items})
 
-        elif name == "log_expense":
+        elif name == "get_preferences":
+            async with httpx.AsyncClient() as client:
+                r = await client.get(
+                    sb_url("preferences?order=created_at.desc"),
+                    headers=sb_headers()
+                )
+            raw = r.json()
+            data = raw if isinstance(raw, list) else []
+            avoid = [p["item"] for p in data if p.get("type") == "avoid"]
+            favourites = [p["item"] for p in data if p.get("type") == "favourite"]
+            replace = {p["item"]: p.get("replace_with","") for p in data if p.get("type") == "replace" and p.get("replace_with")}
+            return json.dumps({"avoid": avoid, "favourites": favourites, "replace": replace})
+
+        elif name == "save_preference":
+            ptype = args.get("type", "avoid")
+            item = args.get("item", "").lower().strip()
+            replace_with = args.get("replace_with", "").lower().strip()
+            reason = args.get("reason", "")
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    sb_url("preferences"),
+                    headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+                    json={"type": ptype, "item": item, "replace_with": replace_with,
+                          "reason": reason, "created_at": datetime.now().isoformat()}
+                )
+            msg = {"avoid": f"Got it! I'll avoid {item} in future plans.",
+                   "favourite": f"Noted! I'll include {item} more often.",
+                   "replace": f"Got it! I'll use {replace_with} instead of {item} going forward."}
+            return json.dumps({"success": True, "message": msg.get(ptype, "Preference saved!")})
+
+        elif name == "send_weekly_email":
+            plan_text = args.get("plan_text", "")
+            shopping_text = args.get("shopping_text", "")
+            supriya_email = os.getenv("SUPRIYA_EMAIL")
+            vivek_email = os.getenv("VIVEK_EMAIL")
+            resend_key = os.getenv("RESEND_API_KEY")
+            if not resend_key:
+                return json.dumps({"error": "RESEND_API_KEY not set"})
+            body = f"""Hey! 👋 Here's your Sous Chef plan for next week.
+
+━━━━━━━━━━━━━━━━━━━━
+🍽️ WEEKLY MEAL PLAN
+━━━━━━━━━━━━━━━━━━━━
+
+{plan_text}
+
+━━━━━━━━━━━━━━━━━━━━
+🛒 SHOPPING LIST
+━━━━━━━━━━━━━━━━━━━━
+
+{shopping_text}
+
+━━━━━━━━━━━━━━━━━━━━
+Have a great week! 💪
+— Sous Chef 🍳"""
+            async with httpx.AsyncClient() as client:
+                for email in [supriya_email, vivek_email]:
+                    if email:
+                        await client.post(
+                            "https://api.resend.com/emails",
+                            headers={"Authorization": f"Bearer {resend_key}",
+                                     "Content-Type": "application/json"},
+                            json={"from": "Sous Chef <noreply@resend.dev>",
+                                  "to": email,
+                                  "subject": f"🍽️ Your Week Ahead — Sous Chef",
+                                  "text": body}
+                        )
+            return json.dumps({"success": True, "sent_to": [supriya_email, vivek_email]})
             amount = args.get("amount", 0)
             if isinstance(amount, str):
                 try: amount = float(amount)
@@ -409,8 +514,14 @@ async def execute_tool(name: str, args: dict) -> str:
     except Exception as e:
         return json.dumps({"error": str(e)})
 
-def generate_shopping_list(week_plan: list) -> list:
-    """Generate structured shopping list from the week plan."""
+def generate_shopping_list(week_plan: list, in_stock: list = None) -> list:
+    """Generate structured shopping list from the week plan.
+    Removes items already in pantry (in_stock).
+    """
+    in_stock = [i.lower().strip() for i in (in_stock or [])]
+    
+    def is_in_stock(item_name):
+        return any(s in item_name.lower() for s in in_stock)
     items = []
 
     # Count protein days
@@ -419,36 +530,118 @@ def generate_shopping_list(week_plan: list) -> list:
     has_paneer = any("paneer" in d.get("gravy","") or "paneer bhurji" in d.get("protein","") for d in week_plan)
 
     # ── Licious ──
-    items.append({"item": "Eggs", "qty": "6 dozen", "platform": "licious", "estimatedPrice": 834})
-    if chicken_days > 0:
+    if not is_in_stock("eggs"):
+        items.append({"item": "Eggs", "qty": "6 dozen", "platform": "licious", "estimatedPrice": 834})
+    if chicken_days > 0 and not is_in_stock("chicken breast"):
         items.append({"item": "Chicken breast", "qty": f"{chicken_days}×450g", "platform": "licious", "estimatedPrice": chicken_days * 295})
+    if chicken_days > 0 and not is_in_stock("chicken curry cut"):
         items.append({"item": "Chicken curry cut", "qty": f"{chicken_days}×500g", "platform": "licious", "estimatedPrice": chicken_days * 260})
-    if fish_days > 0:
+    if fish_days > 0 and not is_in_stock("mackerel"):
         items.append({"item": "Mackerel", "qty": f"{fish_days}×500g", "platform": "licious", "estimatedPrice": fish_days * 350})
 
     # ── Instamart ──
-    if has_paneer:
+    if has_paneer and not is_in_stock("paneer"):
         items.append({"item": "Paneer", "qty": "2×200g", "platform": "instamart", "estimatedPrice": 272})
-    items.append({"item": "A2 Milk", "qty": "14×500ml", "platform": "instamart", "estimatedPrice": 742})
-    items.append({"item": "Epigamia Yogurt", "qty": "2", "platform": "instamart", "estimatedPrice": 498})
+    if not is_in_stock("milk"):
+        items.append({"item": "A2 Milk", "qty": "14×500ml", "platform": "instamart", "estimatedPrice": 742})
+    if not is_in_stock("yogurt"):
+        items.append({"item": "Epigamia Yogurt", "qty": "2", "platform": "instamart", "estimatedPrice": 498})
 
     # ── Mango ──
-    # Collect vegetables from the week plan
     sabzis = [d.get("sabzi","") for d in week_plan if d.get("sabzi") and d.get("sabzi") != "none"]
-    veg_price = 350  # approximate
-    items.append({"item": "Vegetables (week)", "qty": ", ".join(set(sabzis)), "platform": "mango", "estimatedPrice": veg_price})
-    items.append({"item": "Fruits (banana, blueberries, dragon fruit)", "qty": "week supply", "platform": "mango", "estimatedPrice": 500})
+    items.append({"item": "Vegetables (week)", "qty": ", ".join(set(sabzis)), "platform": "mango", "estimatedPrice": 350})
+    if not is_in_stock("fruits"):
+        items.append({"item": "Fruits (banana, blueberries, dragon fruit)", "qty": "week supply", "platform": "mango", "estimatedPrice": 500})
 
-    # Staples (always)
     gravies = [d.get("gravy","") for d in week_plan]
-    if any("dal" in g or "kadhi" in g or "sambar" in g for g in gravies):
+    if any("dal" in g or "kadhi" in g or "sambar" in g for g in gravies) and not is_in_stock("dal"):
         items.append({"item": "Dal / Lentils", "qty": "as needed", "platform": "mango", "estimatedPrice": 130})
-    if any("rice" in d.get("lunch","").lower() for d in week_plan):
+    if any("rice" in d.get("lunch","").lower() for d in week_plan) and not is_in_stock("rice"):
         items.append({"item": "Rice 5kg", "qty": "1", "platform": "mango", "estimatedPrice": 320})
-    if any("paratha" in d.get("lunch","").lower() or "roti" in d.get("lunch","").lower() for d in week_plan):
+    if any("paratha" in d.get("lunch","").lower() or "roti" in d.get("lunch","").lower() for d in week_plan) and not is_in_stock("atta"):
         items.append({"item": "Atta 1kg", "qty": "1", "platform": "mango", "estimatedPrice": 60})
 
     return items
+
+async def run_weekly_agent() -> dict:
+    """
+    Autonomous Friday agent — LLM is the brain.
+    Runs every Friday, plans next week, sends email. No human needed.
+    """
+    now = datetime.now()
+
+    # Get all context first
+    history = await get_history()
+    
+    # LLM-driven planning with full context
+    WEEKLY_SYSTEM = """You are Sous Chef, an autonomous meal planning agent for Supriya and Vivek in Bengaluru.
+
+It's Friday. Your job RIGHT NOW is to:
+1. Call get_preferences() to check their food preferences
+2. Call get_pantry() to see what's already at home
+3. Plan next week using plan_week_tool() — pass avoid/replace lists from preferences
+4. Format the plan as plain text
+5. Generate the shopping list (remove pantry items already in stock)
+6. Call send_weekly_email() with the plan and shopping list
+
+Be smart:
+- Apply preferences — if they avoid moong dal, don't include it
+- If pantry has rice, remove from shopping list
+- Keep it warm and personal in the email
+
+Do all of this NOW without asking questions. Just execute."""
+
+    # Build week plan using preferences
+    prefs_result = await execute_tool("get_preferences", {})
+    prefs = json.loads(prefs_result)
+    avoid = prefs.get("avoid", [])
+    replace = prefs.get("replace", {})
+
+    pantry_result = await execute_tool("get_pantry", {})
+    pantry = json.loads(pantry_result)
+    in_stock = pantry.get("in_stock", [])
+
+    # Generate plan with preference overrides
+    week_plan = plan_week(history, avoid=avoid, replace=replace)
+    await save_plan(week_plan)
+    shopping_list = generate_shopping_list(week_plan, in_stock=in_stock)
+
+    # Format plan as plain text
+    def format_day_type(dt):
+        labels = {"chicken": "Chicken", "fish": "Fish", "veg": "Veg",
+                 "khichdi": "Khichdi Special", "flex": "Flexible"}
+        return labels.get(dt, dt.title())
+
+    plan_lines = []
+    for d in week_plan:
+        plan_lines.append(f"{d['day']} — {format_day_type(d['day_type'])}")
+        plan_lines.append(f"  BF: Egg whites + smoothie")
+        plan_lines.append(f"  Lunch & Dinner: {d['lunch']}")
+        plan_lines.append("")
+    plan_text = "\n".join(plan_lines)
+
+    # Format shopping list as plain text grouped by platform
+    shop_lines = []
+    total = 0
+    for platform in ["licious", "instamart", "mango"]:
+        platform_items = [i for i in shopping_list if i.get("platform") == platform]
+        if not platform_items: continue
+        shop_lines.append(f"📍 {platform.upper()}")
+        for item in platform_items:
+            price = item.get("estimatedPrice", 0)
+            total += price
+            shop_lines.append(f"  • {item['item']} ({item['qty']}) — ₹{price:,}")
+        shop_lines.append("")
+    shop_lines.append(f"TOTAL: ~₹{total:,}")
+    shopping_text = "\n".join(shop_lines)
+
+    # Send email
+    email_result = await execute_tool("send_weekly_email", {
+        "plan_text": plan_text,
+        "shopping_text": shopping_text
+    })
+
+    return {"success": True, "plan": plan_text, "email_result": json.loads(email_result)}
 
 async def run_agent(messages: list) -> dict:
     now = datetime.now()

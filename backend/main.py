@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 from dotenv import load_dotenv
-from agent.graph import run_agent
+from agent.graph import run_agent, run_weekly_agent
 from api.expenses import router as expenses_router
 from api.meals import router as meals_router
+from api.preferences import router as preferences_router
 
 load_dotenv()
 
@@ -22,6 +23,7 @@ app.add_middleware(
 
 app.include_router(expenses_router, prefix="/api/expenses")
 app.include_router(meals_router, prefix="/api/meals")
+app.include_router(preferences_router, prefix="/api/preferences")
 
 class Message(BaseModel):
     role: str
@@ -48,6 +50,21 @@ async def chat(request: ChatRequest):
     except Exception as e:
         import traceback
         print("CHAT ERROR:", str(e))
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/weekly-plan")
+async def weekly_plan():
+    """
+    Called every Friday by Railway cron job.
+    LLM plans next week and sends email to Supriya + Vivek.
+    """
+    try:
+        result = await run_weekly_agent()
+        return result
+    except Exception as e:
+        import traceback
+        print("WEEKLY PLAN ERROR:", str(e))
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 

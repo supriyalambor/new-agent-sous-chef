@@ -3,5 +3,14 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "cronJobs": [
+      {
+        "name": "weekly-meal-plan",
+        "schedule": "0 12 * * 5",
+        "command": "curl -X POST http://localhost:8080/api/weekly-plan"
+      }
+    ]
   }
 }
